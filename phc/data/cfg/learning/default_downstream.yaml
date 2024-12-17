@@ -1,0 +1,8 @@
+defaults:
+  - learning/pulse_z_task
+
+env:
+  models: [ 'output/HumanoidIm/pulse_vae_iclr/Humanoid.pth' ]
+  motion_file: sample_data/amass_isaac_simple_run_upright_slim.pkl
+robot:
+  real_weight_porpotion_boxes: False

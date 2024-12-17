@@ -1,0 +1,6 @@
+learning:
+  params:
+    config:
+      minibatch_size: 4069
+env:
+  num_envs: 512
