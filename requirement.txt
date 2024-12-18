@@ -6,7 +6,7 @@ patchelf
 termcolor
 torchgeometry
 scikit-image
-numpy
+numpy==1.23.5
 scipy
 ipdb
 joblib>=1.2.0

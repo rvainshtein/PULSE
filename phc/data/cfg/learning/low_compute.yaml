@@ -1,6 +1,10 @@
+# @package _global_
+
 learning:
   params:
     config:
-      minibatch_size: 4069
+      minibatch_size: 1024
+  num_envs: 128
+
 env:
-  num_envs: 512
+  num_envs: ${learning.num_envs}
