@@ -18,7 +18,7 @@ from phc.utils.flags import flags
 from utils import torch_utils
 from isaacgym import gymtorch
 import joblib
-from poselib.poselib.core.rotation3d import quat_inverse, quat_mul
+from poselib_pulse.poselib.core.rotation3d import quat_inverse, quat_mul
 from tqdm import tqdm
 from scipy.spatial.transform import Rotation as sRot
 import matplotlib.pyplot as plt
