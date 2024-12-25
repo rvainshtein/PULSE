@@ -36,6 +36,9 @@ class CommonAgent(a2c_continuous.A2CAgent):
     def __init__(self, base_name, config):
         a2c_common.A2CBase.__init__(self, base_name, config)
         self.cfg = config
+
+        self.ppo_device = self.cfg['device']
+
         self.exp_name = self.cfg['train_dir'].split('/')[-1]
 
         self._load_config_params(config)

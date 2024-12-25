@@ -6,5 +6,7 @@ learning:
       minibatch_size: 4096
   num_envs: 128
 
-env:
-  num_envs: ${learning.num_envs}
+#env:
+#  num_envs: ${learning.num_envs}
+
+device_id: 1

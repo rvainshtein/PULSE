@@ -43,12 +43,14 @@ from phc.env.tasks.humanoid_reach import HumanoidReach, HumanoidReachZ
 from phc.env.tasks.humanoid_strike import HumanoidStrike, HumanoidStrikeZ
 from phc.env.tasks.humanoid_pedestrian_terrain import HumanoidPedestrianTerrain, HumanoidPedestrianTerrainZ
 
+from hydra.utils import instantiate
 
 from isaacgym import rlgpu
 
 import json
 import numpy as np
 
+from phc.env.util.pm_wrapper import PMWrapper
 
 def warn_task_name():
     raise Exception("Unrecognized task!\nTask should be one of: [BallBalance, Cartpole, CartpoleYUp, Ant, Humanoid, Anymal, FrankaCabinet, Quadcopter, ShadowHand, ShadowHandLSTM, ShadowHandFFOpenAI, ShadowHandFFOpenAITest, ShadowHandOpenAI, ShadowHandOpenAITest, Ingenuity]")
@@ -64,7 +66,15 @@ def parse_task(args, cfg, cfg_train, sim_params):
     cfg_task = cfg["env"]
     cfg_task["seed"] = cfg["seed"]
 
-    task = eval(args.task)(cfg=cfg, sim_params=sim_params, physics_engine=args.physics_engine, device_type=args.device, device_id=device_id, headless=args.headless)
-    env = VecTaskPythonWrapper(task, rl_device, cfg_train['params'].get("clip_observations", np.inf))
+    if '_target_' in cfg_task:
+        print(cfg_task)
+        env_config = cfg_task['config']
+        env_config['_target'] = cfg_task['_target_']
+        env = instantiate(env_config, device=args.device)
+        env = PMWrapper(env)
+        task = None
+    else:
+        task = eval(args.task)(cfg=cfg, sim_params=sim_params, physics_engine=args.physics_engine, device_type=args.device, device_id=device_id, headless=args.headless)
+        env = VecTaskPythonWrapper(task, rl_device, cfg_train['params'].get("clip_observations", np.inf))
 
     return task, env

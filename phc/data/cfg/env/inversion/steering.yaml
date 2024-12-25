@@ -1,7 +1,9 @@
 # @package _global_
+defaults:
+  - /env/env_pulse_amp
 
 env:
-  _target_: phc.env.pm_inversion.steering.isaacgym.MaskedMimicDirectionHumanoid
+  _target_: phys_anim.envs.masked_mimic_inversion.steering.${backbone}.MaskedMimicDirectionHumanoid
   config:
     steering_params:
       heading_change_steps_min: 40

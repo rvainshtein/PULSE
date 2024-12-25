@@ -1,0 +1,17 @@
+# @package _global_
+
+defaults:
+  - /learning/pulse_z_task
+  - /learning/low_compute
+  - override /env: inversion/steering
+
+exp_name: pulse_my_direction
+
+robot:
+  real_weight_porpotion_boxes: False
+
+env:
+#  task: HumanoidSpeedZ
+#  models: [ 'output/HumanoidIm/pulse_vae_iclr/Humanoid.pth' ]
+  models: null
+  motion_file: sample_data/amass_isaac_simple_run_upright_slim.pkl
