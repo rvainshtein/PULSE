@@ -7,7 +7,7 @@
 
 import logging
 
-logger = logging.getLogger("poselib")
+logger = logging.getLogger("poselib_pulse")
 logger.setLevel(logging.INFO)
 
 if not len(logger.handlers):
