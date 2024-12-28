@@ -44,4 +44,3 @@ hydra:
       OMP_NUM_THREADS: 1
   run:
     dir: output/HumanoidIm/${exp_name}
-

@@ -4,11 +4,20 @@ from phys_anim.envs.masked_mimic_inversion.base_task.isaacgym import MaskedMimic
 class PMWrapper:
     def __init__(self, env: MaskedMimicTaskHumanoid):
         self.env = env
-        self.reward_raw = env.rew_buf
+        self.attribute_mapping = {
+            'reward_raw': 'rew_buf',
+            'num_actions': 'num_act',
+            'num_states': 'num_joints'  # not sure what this is and why we use it even.
+        }
 
     # Delegate all other attribute/method calls to the wrapped environment
     def __getattr__(self, name):
-        return getattr(self.env, name)
+        if name in self.attribute_mapping:
+            # Map wrapper attribute to the corresponding env attribute
+            return getattr(self.env, self.attribute_mapping[name])
+        else:
+            # Fallback to normal delegation
+            return getattr(self.env, name)
 
     def _create_envs(self, num_envs, spacing, num_per_row):
         return self.env.create_envs(num_envs, spacing, num_per_row)

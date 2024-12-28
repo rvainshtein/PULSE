@@ -70,6 +70,8 @@ from env.tasks import humanoid_amp_task
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from easydict import EasyDict
+from phys_anim.utils.config_utils import *  # noqa: E402, F403
+
 
 args = None
 cfg = None

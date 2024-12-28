@@ -25,6 +25,7 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import torch
 
 from phc.env.tasks.humanoid import Humanoid
 from phc.env.tasks.humanoid_amp import HumanoidAMP
@@ -52,12 +53,13 @@ import numpy as np
 
 from phc.env.util.pm_wrapper import PMWrapper
 
+
 def warn_task_name():
-    raise Exception("Unrecognized task!\nTask should be one of: [BallBalance, Cartpole, CartpoleYUp, Ant, Humanoid, Anymal, FrankaCabinet, Quadcopter, ShadowHand, ShadowHandLSTM, ShadowHandFFOpenAI, ShadowHandFFOpenAITest, ShadowHandOpenAI, ShadowHandOpenAITest, Ingenuity]")
+    raise Exception(
+        "Unrecognized task!\nTask should be one of: [BallBalance, Cartpole, CartpoleYUp, Ant, Humanoid, Anymal, FrankaCabinet, Quadcopter, ShadowHand, ShadowHandLSTM, ShadowHandFFOpenAI, ShadowHandFFOpenAITest, ShadowHandOpenAI, ShadowHandOpenAITest, Ingenuity]")
 
 
 def parse_task(args, cfg, cfg_train, sim_params):
-
     # create native task and pass custom config
     device_id = args.device_id
     rl_device = args.rl_device
@@ -67,14 +69,16 @@ def parse_task(args, cfg, cfg_train, sim_params):
     cfg_task["seed"] = cfg["seed"]
 
     if '_target_' in cfg_task:
-        print(cfg_task)
-        env_config = cfg_task['config']
-        env_config['_target'] = cfg_task['_target_']
-        env = instantiate(env_config, device=args.device)
+        env_part_config = cfg['learning']['exp']['env']
+        env_config = dict(config=env_part_config['config'],
+                          _target_=env_part_config['_target_'],
+                          _recursive_=env_part_config['_recursive_'])
+        env = instantiate(env_config, device=torch.device(rl_device))
         env = PMWrapper(env)
         task = None
     else:
-        task = eval(args.task)(cfg=cfg, sim_params=sim_params, physics_engine=args.physics_engine, device_type=args.device, device_id=device_id, headless=args.headless)
+        task = eval(args.task)(cfg=cfg, sim_params=sim_params, physics_engine=args.physics_engine,
+                               device_type=args.device, device_id=device_id, headless=args.headless)
         env = VecTaskPythonWrapper(task, rl_device, cfg_train['params'].get("clip_observations", np.inf))
 
     return task, env

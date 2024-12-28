@@ -1,9 +1,13 @@
 # @package _global_
 
 defaults:
+  - /learning/exp/base
   - /learning/pulse_z_task
   - /learning/low_compute
-  - override /env: inversion/steering
+  - /env/env_pulse_amp
+  - /env/pm_inversion/steering
+#  - override /env: pm_inversion/steering
+#  - env/pm_inversion/steering
 
 exp_name: pulse_my_direction
 
