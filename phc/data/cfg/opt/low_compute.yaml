@@ -1,0 +1,13 @@
+# @package _global_
+
+learning:
+  params:
+    config:
+      minibatch_size: 4096
+  num_envs: 128
+
+env:
+  num_envs: ${learning.num_envs}
+
+#device_id: 1
+#rl_device: 'cuda:1'
