@@ -345,7 +345,7 @@ env:
         _target_: phys_anim.envs.env_utils.terrains.terrain.Terrain
       backbone: isaacgym
       headless: true
-      num_envs: 1024
+      num_envs: 128
       scene_lib:
       simulator:
         sim:
@@ -497,7 +497,7 @@ env:
         start_without_history_prob: 0
         object_bounding_box_visible_prob: 0.8
         motion_text_embeddings_visible_prob: 0.5
-      disable_discriminator: true
+      disable_discriminator: false  # to run PULSE
       mimic_motion_sampling:
         init_start_prob: 0.15
         init_random_prob: 0.05
@@ -525,7 +525,7 @@ env:
       - Head
       - L_Hand
       - R_Hand
-      discriminator_obs_historical_steps: 1
+      discriminator_obs_historical_steps: 10
     _target_: phys_anim.envs.masked_mimic_inversion.steering.isaacgym.MaskedMimicDirectionHumanoid
     _recursive_: false
 algo:
@@ -1886,7 +1886,7 @@ algo:
           normalize_obs: true
           use_layer_norm: false
           obs_clamp_value:
-          discriminator_obs_historical_steps: 1
+          discriminator_obs_historical_steps: 10
         _target_: phys_anim.agents.models.discriminator.JointDiscMLP
         _recursive_: false
       normalize_obs: true

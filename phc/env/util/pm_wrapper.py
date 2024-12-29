@@ -7,14 +7,21 @@ class PMWrapper:
         self.attribute_mapping = {
             'reward_raw': 'rew_buf',
             'num_actions': 'num_act',
-            'num_states': 'num_joints'  # not sure what this is and why we use it even.
+            # 'num_states': 'num_joints'  # not sure what this is and why we use it even.
+            'num_states': 'return_0',  # not sure what this is and why we use it even.
+            'get_num_amp_obs': 'get_num_disc_obs',
+            'get_num_enc_amp_obs': 'get_num_disc_obs',
         }
 
     # Delegate all other attribute/method calls to the wrapped environment
     def __getattr__(self, name):
         if name in self.attribute_mapping:
             # Map wrapper attribute to the corresponding env attribute
-            return getattr(self.env, self.attribute_mapping[name])
+            new_name = self.attribute_mapping[name]
+            if new_name == 'return_0':
+                return 0
+            else:
+                return getattr(self.env, new_name)
         else:
             # Fallback to normal delegation
             return getattr(self.env, name)

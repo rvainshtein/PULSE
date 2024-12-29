@@ -75,6 +75,7 @@ def parse_task(args, cfg, cfg_train, sim_params):
                           _recursive_=env_part_config['_recursive_'])
         env = instantiate(env_config, device=torch.device(rl_device))
         env = PMWrapper(env)
+        env = VecTaskPythonWrapper(env, rl_device, cfg_train['params'].get("clip_observations", np.inf))
         task = None
     else:
         task = eval(args.task)(cfg=cfg, sim_params=sim_params, physics_engine=args.physics_engine,
