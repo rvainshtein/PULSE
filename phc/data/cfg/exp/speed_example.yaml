@@ -13,5 +13,4 @@ robot:
 env:
   task: HumanoidSpeedZ
   models: [ 'output/HumanoidIm/pulse_vae_iclr/Humanoid.pth' ]  # example from readme
-#  models: [ ]  # no pretrained model??
   motion_file: sample_data/amass_isaac_simple_run_upright_slim.pkl

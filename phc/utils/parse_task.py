@@ -42,6 +42,7 @@ from phc.env.tasks.humanoid_speed import HumanoidSpeed, HumanoidSpeedZ
 from phc.env.tasks.humanoid_reach import HumanoidReach, HumanoidReachZ
 from phc.env.tasks.humanoid_strike import HumanoidStrike, HumanoidStrikeZ
 from phc.env.tasks.humanoid_pedestrian_terrain import HumanoidPedestrianTerrain, HumanoidPedestrianTerrainZ
+from phc.env.tasks.pm.direction import HumanoidDirectionZ
 
 
 from isaacgym import rlgpu

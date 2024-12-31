@@ -129,7 +129,7 @@ def create_rlgpu_env(**kwargs):
 
         cfg['rank'] = rank
         cfg['rl_device'] = 'cuda:' + str(rank)
-    
+
     sim_params = parse_sim_params(cfg)
     args = EasyDict({
         "task": cfg.env.task, 
@@ -138,13 +138,13 @@ def create_rlgpu_env(**kwargs):
         "physics_engine": gymapi.SIM_PHYSX if not cfg.sim.use_flex else gymapi.SIM_FLEX,
         "headless": cfg.headless,
         "device": cfg.device,
-    }) #### ZL: patch 
+    }) #### ZL: patch
     task, env = parse_task(args, cfg, cfg_train, sim_params)
 
-    print(env.num_envs)
-    print(env.num_actions)
-    print(env.num_obs)
-    print(env.num_states)
+    print(f"num_envs: {env.num_envs}")
+    print(f"num_actions: {env.num_actions}")
+    print(f"num_obs: {env.num_obs}")
+    print(f"num_states: {env.num_states}")
 
     frames = kwargs.pop('frames', 1)
     if frames > 1:
