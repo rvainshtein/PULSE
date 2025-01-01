@@ -194,7 +194,7 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
         self._marker_pos = self._marker_states[..., :3]
         self._marker_rot = self._marker_states[..., 3:7]
         self._marker_actor_ids = self._humanoid_actor_ids + itu.to_torch(self._marker_handles, device=self.device,
-                                                                     dtype=torch.int32)
+                                                                         dtype=torch.int32)
 
         return
 
@@ -261,19 +261,12 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
 
         return flip_task_obs
 
-    def get_humanoid_root_states(self):
-        # return self._humanoid_root_states[..., :7].clone()
-        return self._humanoid_root_states[..., :7]
-
     def get_body_positions(self):
-        # return self._rigid_body_pos.clone()
-        return self._rigid_body_pos
+        return self._rigid_body_pos.clone()
 
     def _compute_task_obs(self, env_ids=None):
-        super()._compute_task_obs(env_ids)
-
         if env_ids is None:
-            root_states = self.get_humanoid_root_states()
+            root_states = self._humanoid_root_states
             tar_dir = self._tar_dir
             tar_speed = self._tar_speed
             # humanoid_obs = self.obs_buf
@@ -285,11 +278,12 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
             head_coords = global_translations[:, self.head_id, :]
             humanoid_obs = torch.cat([root_coords, head_coords], dim=-1)
         else:
-            root_states = self.get_humanoid_root_states()[env_ids]
+            root_states = self._humanoid_root_states[env_ids]
             tar_dir = self._tar_dir[env_ids]
             tar_speed = self._tar_speed[env_ids]
             # humanoid_obs = self.obs_buf[env_ids]
-            global_translations = self.get_body_positions()[env_ids]
+            # global_translations = self.get_body_positions()[env_ids]
+            global_translations = self.get_body_positions()  # why not with envs??
             # root_height = global_translations[env_ids, 0, 2]
             # head_height = global_translations[env_ids, self.head_id, 2]
             # humanoid_obs = torch.cat([root_height.unsqueeze(-1), head_height.unsqueeze(-1)], dim=-1)
@@ -305,7 +299,7 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
         return obs
 
     def _compute_reward(self, actions):
-        root_pos = self.get_humanoid_root_states()[..., :3]
+        root_pos = self._humanoid_root_states[..., :3]
         self.rew_buf[:], output_dict = compute_heading_reward(
             root_pos, self._prev_root_pos, self._tar_dir, self._tar_speed, self.dt
         )
@@ -326,17 +320,6 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
             print(
                 f'error: {output_dict["tar_vel_err"].item():.3f}; tangent error: {output_dict["tangent_vel_err"].item():.3f}'
             )
-
-        # other_log_terms = {
-        #     "total_rew": self.rew_buf,
-        # }
-        #
-        # for rew_name, rew in other_log_terms.items():
-        #     self.log_dict[f"{rew_name}_mean"] = rew.mean()
-        #     # self.log_dict[f"{rew_name}_std"] = rew.std()
-        #
-        # self.last_unscaled_rewards: Dict[str, Tensor] = self.log_dict
-        # self.last_other_rewards = other_log_terms
 
     def _draw_task(self):
         self._update_marker()
@@ -406,7 +389,7 @@ class HumanoidDirectionZ(HumanoidDirection):
 ###=========================jit functions=========================###
 #####################################################################
 
-# @torch.jit.script
+@torch.jit.script
 def compute_heading_observations(
         root_states: Tensor, tar_dir: Tensor, tar_speed: Tensor
 ) -> Tensor:

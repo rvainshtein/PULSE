@@ -42,7 +42,7 @@ def project_to_norm(x, norm=5, z_type = "sphere"):
         x = torch.clamp(x, -norm, norm)
     return x
 
-# @torch.jit.script
+@torch.jit.script
 def my_quat_rotate(q, v):
     shape = q.shape
     q_w = q[:, -1]
@@ -54,7 +54,7 @@ def my_quat_rotate(q, v):
             shape[0], 3, 1)).squeeze(-1) * 2.0
     return a + b + c
 
-# @torch.jit.script
+@torch.jit.script
 def quat_to_angle_axis(q):
     # type: (Tensor) -> Tuple[Tensor, Tensor]
     # computes axis-angle representation from quaternion q
@@ -172,7 +172,7 @@ def exp_map_to_quat(exp_map):
     return q
 
 
-#@torch.jit.script
+@torch.jit.script
 def slerp(q0, q1, t):
     # type: (Tensor, Tensor, Tensor) -> Tensor
     cos_half_theta = torch.sum(q0 * q1, dim=-1)
@@ -197,7 +197,7 @@ def slerp(q0, q1, t):
     return new_q
 
 
-# @torch.jit.script
+@torch.jit.script
 def calc_heading(q):
     # type: (Tensor) -> Tensor
     # calculate heading direction from quaternion
@@ -212,7 +212,7 @@ def calc_heading(q):
     return heading
 
 
-# @torch.jit.script
+@torch.jit.script
 def calc_heading_quat(q):
     # type: (Tensor) -> Tensor
     # calculate heading rotation from quaternion
@@ -226,7 +226,7 @@ def calc_heading_quat(q):
     return heading_q
 
 
-# @torch.jit.script
+@torch.jit.script
 def calc_heading_quat_inv(q):
     # type: (Tensor) -> Tensor
     # calculate heading rotation from quaternion
