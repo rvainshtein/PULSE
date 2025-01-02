@@ -27,10 +27,12 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import glob
+import math
 import os
 import sys
 import pdb
 import os.path as osp
+
 os.environ["OMP_NUM_THREADS"] = "1"
 
 sys.path.append(os.getcwd())
@@ -39,7 +41,6 @@ from phc.utils.config import set_np_formatting, set_seed, SIM_TIMESTEP
 from phc.utils.parse_task import parse_task
 from isaacgym import gymapi
 from isaacgym import gymutil
-
 
 from rl_games.algos_torch import players
 from rl_games.algos_torch import torch_ext
@@ -75,20 +76,30 @@ args = None
 cfg = None
 cfg_train = None
 
+OmegaConf.register_new_resolver("eval", eval)
+OmegaConf.register_new_resolver("if", lambda pred, a, b: a if pred else b)
+OmegaConf.register_new_resolver("eq", lambda x, y: x.lower() == y.lower())
+OmegaConf.register_new_resolver("sqrt", lambda x: math.sqrt(float(x)))
+OmegaConf.register_new_resolver("sum", lambda x: sum(x))
+OmegaConf.register_new_resolver("ceil", lambda x: math.ceil(x))
+OmegaConf.register_new_resolver("int", lambda x: int(x))
+OmegaConf.register_new_resolver("len", lambda x: len(x))
+OmegaConf.register_new_resolver("sum_list", lambda lst: sum(lst))
+
 
 def parse_sim_params(cfg):
     # initialize sim
     sim_params = gymapi.SimParams()
     sim_params.dt = SIM_TIMESTEP
     sim_params.num_client_threads = cfg.sim.slices
-    
+
     if cfg.sim.use_flex:
         if cfg.sim.pipeline in ["gpu"]:
             print("WARNING: Using Flex with GPU instead of PHYSX!")
         sim_params.use_flex.shape_collision_margin = 0.01
         sim_params.use_flex.num_outer_iterations = 4
         sim_params.use_flex.num_inner_iterations = 10
-    else : # use gymapi.SIM_PHYSX
+    else:  # use gymapi.SIM_PHYSX
         sim_params.physx.solver_type = 1
         sim_params.physx.num_position_iterations = 4
         sim_params.physx.num_velocity_iterations = 1
@@ -110,8 +121,9 @@ def parse_sim_params(cfg):
     # Override num_threads if passed on the command line
     if not cfg.sim.use_flex and cfg.sim.physx.num_threads > 0:
         sim_params.physx.num_threads = cfg.sim.physx.num_threads
-    
+
     return sim_params
+
 
 def create_rlgpu_env(**kwargs):
     use_horovod = cfg_train['params']['config'].get('multi_gpu', False)
@@ -132,13 +144,13 @@ def create_rlgpu_env(**kwargs):
 
     sim_params = parse_sim_params(cfg)
     args = EasyDict({
-        "task": cfg.env.task, 
+        "task": cfg.env.task,
         "device_id": cfg.device_id,
         "rl_device": cfg.rl_device,
         "physics_engine": gymapi.SIM_PHYSX if not cfg.sim.use_flex else gymapi.SIM_FLEX,
         "headless": cfg.headless,
         "device": cfg.device,
-    }) #### ZL: patch
+    })  #### ZL: patch
     task, env = parse_task(args, cfg, cfg_train, sim_params)
 
     print(f"num_envs: {env.num_envs}")
@@ -226,9 +238,9 @@ class RLGPUEnv(vecenv.IVecEnv):
         info['action_space'] = self.env.action_space
         info['observation_space'] = self.env.observation_space
         info['amp_observation_space'] = self.env.amp_observation_space
-        
+
         info['enc_amp_observation_space'] = self.env.enc_amp_observation_space
-        
+
         if isinstance(self.env.task, humanoid_amp_task.HumanoidAMPTask):
             info['task_obs_size'] = self.env.task.get_task_obs_size()
         else:
@@ -244,28 +256,35 @@ class RLGPUEnv(vecenv.IVecEnv):
 
 
 vecenv.register('RLGPU', lambda config_name, num_actors, **kwargs: RLGPUEnv(config_name, num_actors, **kwargs))
-env_configurations.register('rlgpu', {'env_creator': lambda **kwargs: create_rlgpu_env(**kwargs), 'vecenv_type': 'RLGPU'})
+env_configurations.register('rlgpu',
+                            {'env_creator': lambda **kwargs: create_rlgpu_env(**kwargs), 'vecenv_type': 'RLGPU'})
 
 
 def build_alg_runner(algo_observer):
     runner = Runner(algo_observer)
     runner.player_factory.register_builder('amp_discrete', lambda **kwargs: amp_players.AMPPlayerDiscrete(**kwargs))
-    
+
     runner.algo_factory.register_builder('amp', lambda **kwargs: amp_agent.AMPAgent(**kwargs))
     runner.player_factory.register_builder('amp', lambda **kwargs: amp_players.AMPPlayerContinuous(**kwargs))
 
-    runner.model_builder.model_factory.register_builder('amp', lambda network, **kwargs: amp_models.ModelAMPContinuous(network))
+    runner.model_builder.model_factory.register_builder('amp', lambda network, **kwargs: amp_models.ModelAMPContinuous(
+        network))
     runner.model_builder.network_factory.register_builder('amp', lambda **kwargs: amp_network_builder.AMPBuilder())
-    runner.model_builder.network_factory.register_builder('amp_mcp', lambda **kwargs: amp_network_mcp_builder.AMPMCPBuilder())
-    runner.model_builder.network_factory.register_builder('amp_sept', lambda **kwargs: amp_network_sept_builder.AMPSeptBuilder())
-    runner.model_builder.network_factory.register_builder('amp_pnn', lambda **kwargs: amp_network_pnn_builder.AMPPNNBuilder())
+    runner.model_builder.network_factory.register_builder('amp_mcp',
+                                                          lambda **kwargs: amp_network_mcp_builder.AMPMCPBuilder())
+    runner.model_builder.network_factory.register_builder('amp_sept',
+                                                          lambda **kwargs: amp_network_sept_builder.AMPSeptBuilder())
+    runner.model_builder.network_factory.register_builder('amp_pnn',
+                                                          lambda **kwargs: amp_network_pnn_builder.AMPPNNBuilder())
     runner.model_builder.network_factory.register_builder('amp_z', lambda **kwargs: amp_network_z_builder.AMPZBuilder())
-    runner.model_builder.network_factory.register_builder('amp_z_reader', lambda **kwargs: amp_network_z_reader_builder.AMPZReaderBuilder())
-    
+    runner.model_builder.network_factory.register_builder('amp_z_reader', lambda
+        **kwargs: amp_network_z_reader_builder.AMPZReaderBuilder())
+
     runner.algo_factory.register_builder('im_amp', lambda **kwargs: im_amp.IMAmpAgent(**kwargs))
     runner.player_factory.register_builder('im_amp', lambda **kwargs: im_amp_players.IMAMPPlayerContinuous(**kwargs))
-    
+
     return runner
+
 
 @hydra.main(
     version_base=None,
@@ -275,13 +294,13 @@ def build_alg_runner(algo_observer):
 def main(cfg_hydra: DictConfig) -> None:
     global cfg_train
     global cfg
-    
+
     cfg = EasyDict(OmegaConf.to_container(cfg_hydra, resolve=True))
-    
+
     set_np_formatting()
 
     # cfg, cfg_train, logdir = load_cfg(args)
-    flags.debug, flags.follow, flags.fixed, flags.divide_group, flags.no_collision_check, flags.fixed_path, flags.real_path,  flags.show_traj, flags.server_mode, flags.slow, flags.real_traj, flags.im_eval, flags.no_virtual_display, flags.render_o3d = \
+    flags.debug, flags.follow, flags.fixed, flags.divide_group, flags.no_collision_check, flags.fixed_path, flags.real_path, flags.show_traj, flags.server_mode, flags.slow, flags.real_traj, flags.im_eval, flags.no_virtual_display, flags.render_o3d = \
         cfg.debug, cfg.follow, False, False, False, False, False, True, cfg.server_mode, False, False, cfg.im_eval, cfg.no_virtual_display, cfg.render_o3d
 
     flags.test = cfg.test
@@ -299,7 +318,7 @@ def main(cfg_hydra: DictConfig) -> None:
     if cfg.real_traj:
         cfg['env']['episode_length'] = 99999999999999
         flags.real_traj = True
-    
+
     cfg.train = not cfg.test
     project_name = cfg.get("project_name", "PULSE")
     if (not cfg.no_log) and (not cfg.test) and (not cfg.debug):
@@ -312,7 +331,7 @@ def main(cfg_hydra: DictConfig) -> None:
         wandb.config.update(cfg, allow_val_change=True)
         wandb.run.name = cfg.exp_name
         wandb.run.save()
-    
+
     set_seed(cfg.get("seed", -1), cfg.get("torch_deterministic", False))
 
     # Create default directories for weights and statistics
@@ -320,10 +339,12 @@ def main(cfg_hydra: DictConfig) -> None:
     cfg_train['params']['config']['network_path'] = cfg.output_path
     cfg_train['params']['config']['train_dir'] = cfg.output_path
     cfg_train["params"]["config"]["num_actors"] = cfg.env.num_envs
-    
+
     if cfg.epoch > 0:
         cfg_train["params"]["load_checkpoint"] = True
-        cfg_train["params"]["load_path"] = osp.join(cfg.output_path, cfg_train["params"]["config"]['name'] + "_" + str(cfg.epoch).zfill(8) + '.pth')
+        cfg_train["params"]["load_path"] = osp.join(cfg.output_path,
+                                                    cfg_train["params"]["config"]['name'] + "_" + str(cfg.epoch).zfill(
+                                                        8) + '.pth')
     elif cfg.epoch == -1:
         path = osp.join(cfg.output_path, cfg_train["params"]["config"]['name'] + '.pth')
         if osp.exists(path):
@@ -333,9 +354,8 @@ def main(cfg_hydra: DictConfig) -> None:
             print(path)
             print("no file to resume!!!!")
 
-    
     os.makedirs(cfg.output_path, exist_ok=True)
-    
+
     algo_observer = RLGPUAlgoObserver()
     runner = build_alg_runner(algo_observer)
     runner.load(cfg_train)

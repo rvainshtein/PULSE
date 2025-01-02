@@ -1,19 +1,12 @@
 # @package _global_
 
 defaults:
-  - /learning/pulse_z_task
-  - /env/env_pulse_amp
-  - /opt/low_compute
+  - /exp/base
 
 exp_name: pm_direction
 
-robot:
-  real_weight_porpotion_boxes: False
-
 env:
   task: HumanoidDirectionZ
-  models: [ 'output/HumanoidIm/pulse_vae_iclr/Humanoid.pth' ]  # example from readme
-  motion_file: sample_data/amass_isaac_simple_run_upright_slim.pkl
   steering_params:
     heading_change_steps_min: 40
     heading_change_steps_max: 150
