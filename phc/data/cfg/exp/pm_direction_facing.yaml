@@ -1,0 +1,9 @@
+# @package _global_
+
+defaults:
+  - /exp/pm_direction
+
+exp_name: pm_direction_facing
+
+env:
+  task: HumanoidDirectionFacingZ

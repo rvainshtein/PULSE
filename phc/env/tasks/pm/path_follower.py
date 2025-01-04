@@ -405,25 +405,6 @@ class HumanoidPathFollowerZ(HumanoidPathFollower):
 ###=========================jit functions=========================###
 #####################################################################
 
-@torch.jit.script
-def compute_heading_observations(
-        root_states: Tensor, tar_dir: Tensor, tar_speed: Tensor
-) -> Tensor:
-    root_rot = root_states[:, 3:7]
-
-    tar_dir3d = torch.cat([tar_dir, torch.zeros_like(tar_dir[..., 0:1])], dim=-1)
-    # heading_rot = torch_utils_pm.calc_heading_quat_inv(root_rot, w_last=True)
-    heading_rot = torch_utils.calc_heading_quat_inv(root_rot)
-
-    # local_tar_dir = rotations.quat_rotate(heading_rot, tar_dir3d, w_last=True)
-    local_tar_dir = rotations.quat_rotate(heading_rot, tar_dir3d)
-    local_tar_dir = local_tar_dir[..., 0:2]
-
-    tar_speed = tar_speed.unsqueeze(-1)
-
-    obs = torch.cat([local_tar_dir, tar_speed], dim=-1)
-    return obs
-
 
 @torch.jit.script
 def compute_path_reward(head_pos, tar_pos, height_conditioned):

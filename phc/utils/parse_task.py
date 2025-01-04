@@ -43,6 +43,7 @@ from phc.env.tasks.humanoid_reach import HumanoidReach, HumanoidReachZ
 from phc.env.tasks.humanoid_strike import HumanoidStrike, HumanoidStrikeZ
 from phc.env.tasks.humanoid_pedestrian_terrain import HumanoidPedestrianTerrain, HumanoidPedestrianTerrainZ
 from phc.env.tasks.pm.direction import HumanoidDirection,HumanoidDirectionZ
+from phc.env.tasks.pm.direction_facing import HumanoidDirectionFacing,HumanoidDirectionFacingZ
 from phc.env.tasks.pm.path_follower import HumanoidPathFollower, HumanoidPathFollowerZ
 
 

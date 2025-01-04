@@ -43,8 +43,7 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
 
         self.pose_obs_size = 6 if self.use_current_pose_obs else 0  # 2 for root and head height, 6 for root and head coords, self.get_obs_size() for full humanoid pose
 
-        # self.obs_size = self.config.steering_params.obs_size + self.pose_obs_size
-        self.obs_size = self.config.steering_params.obs_size + self.pose_obs_size
+        self.obs_size = self.get_pm_obs_size()  # this is here so that direction facing can inherit
 
         device = device_type + ':' + str(device_id)
 
@@ -57,21 +56,11 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
 
         if "smpl" in self.config.asset.assetFileName:
             self.head_id = self.get_body_id("Head")
-
-        if self.use_current_pose_obs:
-            self.direction_obs = torch.zeros(
-                (
-                    self.config.num_envs,
-                    self.config.steering_params.obs_size + self.get_obs_size(),
-                ),
-                device=device,
-                dtype=torch.float,
-            )
         else:
             self.head_id = self.get_body_id("head")
 
         self.direction_obs = torch.zeros(
-            (self.config.num_envs, self.obs_size),
+            (self.config.num_envs, self.config.steering_params.obs_size + self.pose_obs_size),
             # 6 for root and head coords
             device=device,
             dtype=torch.float,
@@ -102,6 +91,9 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
             self._build_marker_state_tensors()
 
         return
+
+    def get_pm_obs_size(self):
+        return self.config.steering_params.obs_size + self.pose_obs_size
 
     def get_body_id(self, body_name):
         return self.gym.find_actor_rigid_body_handle(
