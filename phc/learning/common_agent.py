@@ -631,7 +631,7 @@ class CommonAgent(a2c_continuous.A2CAgent):
         
         if not wandb.run is None:
             wandb.log(train_info, step=self.epoch_num)
-       
+        wandb.log({'frame': frame}, step=self.epoch_num)
         return 
 
     def post_epoch(self, epoch_num):
@@ -1106,6 +1106,8 @@ class CommonDiscreteAgent(a2c_discrete.DiscreteA2CAgent):
         
         if not wandb.run is None:
             wandb.log(train_info, step=self.epoch_num)
+        print("here")
+        wandb.log({'frame': frame}, step=self.epoch_num)
        
         return 
 
