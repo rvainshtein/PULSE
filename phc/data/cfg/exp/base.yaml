@@ -9,6 +9,10 @@ defaults:
 
 exp_name: pm
 
+learning:
+  params:
+    config:
+      max_epochs: 30000
 env:
   models: [ 'output/HumanoidIm/pulse_vae_iclr/Humanoid.pth' ]  # example from readme
   motion_file: sample_data/amass_isaac_simple_run_upright_slim.pkl
