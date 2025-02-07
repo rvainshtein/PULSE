@@ -35,6 +35,16 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
 
         self.create_terrain()
         self.build_termination_heights()
+        self._failures = []
+        self._distances = []
+        self._current_failures = torch.zeros(
+            [self.num_envs], device=self.device, dtype=torch.float
+        )
+        self._last_length = torch.zeros(
+            [self.num_envs], device=self.device, dtype=torch.long
+        )
+
+        self.results = {}
 
     def build_termination_heights(self):
         head_term_height = self.config.head_termination_height
@@ -58,6 +68,17 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
         self.termination_heights = torch_utils.to_torch(
             termination_heights, device=self.device
         )
+
+    def accumulate_errors(self):
+        self.last_unscaled_rewards = self.log_dict
+
+        if len(self._failures) > 0:
+            self.results["reach_success"] = 1.0 - sum(self._failures) / len(
+                self._failures
+            )
+            self.results["reach_distance"] = sum(self._distances) / len(
+                self._distances
+            )
 
     def create_terrain(self):
         self.terrain: Terrain = instantiate(
