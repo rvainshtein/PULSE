@@ -37,6 +37,9 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
         self.build_termination_heights()
         self._failures = []
         self._distances = []
+        self._current_accumulated_errors = (
+                torch.zeros([self.num_envs], device=self.device, dtype=torch.float) - 1
+        )
         self._current_failures = torch.zeros(
             [self.num_envs], device=self.device, dtype=torch.float
         )
@@ -70,7 +73,6 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
         )
 
     def accumulate_errors(self):
-        self.last_unscaled_rewards = self.log_dict
 
         if len(self._failures) > 0:
             self.results["reach_success"] = 1.0 - sum(self._failures) / len(

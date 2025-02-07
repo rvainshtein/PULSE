@@ -39,12 +39,13 @@ from phc.env.tasks.humanoid_im_mcp_demo import HumanoidImMCPDemo
 from phc.env.tasks.humanoid_im_distill import HumanoidImDistill
 from phc.env.tasks.humanoid_im_distill_getup import HumanoidImDistillGetup
 from phc.env.tasks.humanoid_speed import HumanoidSpeed, HumanoidSpeedZ
-from phc.env.tasks.humanoid_reach import HumanoidReach, HumanoidReachZ
+# from phc.env.tasks.humanoid_reach import HumanoidReach, HumanoidReachZ
 from phc.env.tasks.humanoid_strike import HumanoidStrike, HumanoidStrikeZ
 from phc.env.tasks.humanoid_pedestrian_terrain import HumanoidPedestrianTerrain, HumanoidPedestrianTerrainZ
 from phc.env.tasks.pm.direction import HumanoidDirection,HumanoidDirectionZ
 from phc.env.tasks.pm.direction_facing import HumanoidDirectionFacing,HumanoidDirectionFacingZ
 from phc.env.tasks.pm.path_follower import HumanoidPathFollower, HumanoidPathFollowerZ
+from phc.env.tasks.pm.reach import HumanoidReach, HumanoidReachZ
 
 
 

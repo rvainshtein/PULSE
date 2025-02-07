@@ -17,9 +17,17 @@ from isaacgym import gymapi
 from isaacgym import gymtorch
 from isaacgym import gymtorch
 from isaacgym.torch_utils import *
+from phc.env.tasks.pm.base import PMBase
+from torch import Tensor
 
-class HumanoidReach(humanoid_amp_task.HumanoidAMPTask):
+class HumanoidReach(PMBase):
     def __init__(self, cfg, sim_params, physics_engine, device_type, device_id, headless):
+        super().__init__(cfg=cfg,
+                         sim_params=sim_params,
+                         physics_engine=physics_engine,
+                         device_type=device_type,
+                         device_id=device_id,
+                         headless=headless)
         self._tar_change_steps = torch.zeros(
             [self.num_envs], device=self.device, dtype=torch.int64
         )
@@ -34,14 +42,7 @@ class HumanoidReach(humanoid_amp_task.HumanoidAMPTask):
             [self.num_envs], device=self.device, dtype=torch.bool
         )
         self.w_last = True
-        super().__init__(cfg=cfg,
-                         sim_params=sim_params,
-                         physics_engine=physics_engine,
-                         device_type=device_type,
-                         device_id=device_id,
-                         headless=headless)
-
-        reach_body_name = cfg.env.reach_body_name
+        reach_body_name = cfg.env.reach_params.reach_body_name
         self._reach_body_id = self._build_reach_body_id_tensor(self.envs[0], self.humanoid_handles[0], reach_body_name)
         
         if (not self.headless):
@@ -156,8 +157,10 @@ class HumanoidReach(humanoid_amp_task.HumanoidAMPTask):
             )
             self._last_failures[env_ids] = self._current_failures[env_ids] > 0
             self._current_failures[env_ids] = 0
+        else:
+            env_ids = torch.arange(self.num_envs, device=self.device)
 
-        super().reset_task(env_ids)
+        super()._reset_task(env_ids)
         n = len(env_ids)
 
         rand_pos = torch.rand([n, 3], device=self.device)
@@ -207,20 +210,24 @@ class HumanoidReach(humanoid_amp_task.HumanoidAMPTask):
             tar_pos = self._tar_pos[env_ids]
         
         reach_obs = compute_location_observations(root_states, tar_pos, self.w_last)
-        return obs
+        return reach_obs
 
     def _compute_reward(self, actions):
         reach_body_pos = self._rigid_body_pos[:, self._reach_body_id, :]
-        root_rot = self._humanoid_root_states[..., 3:7]
-        
-        self.rew_buf[:] = compute_reach_reward(reach_body_pos, root_rot,
-                                                 self._tar_pos, self._tar_speed,
-                                                 self.dt)
+        self.rew_buf[:] = compute_reach_reward(reach_body_pos, self._tar_pos)
+
+        # self.log_dict.update(output_dict)
+        # # need these at the end of every compute_reward function
+        self.compute_failures_and_distances()
+        self.accumulate_errors()
+
         return
+
+
 
     def compute_failures_and_distances(self):
         body_pos = self.get_bodies_state().body_pos
-        reach_actual_pos = body_pos[:, self.reach_body_id, :]
+        reach_actual_pos = body_pos[:, self._reach_body_id, :]
         goal_pos = self._tar_pos
         distance_to_target = torch.norm(reach_actual_pos - goal_pos, dim=-1).view(
             self.num_envs
@@ -297,15 +304,16 @@ class HumanoidReachZ(HumanoidReach):
 def compute_location_observations(root_states, tar_pos, w_last=True):
     # type: (Tensor, Tensor, bool) -> Tensor
     root_rot = root_states[:, 3:7]
-    heading_rot = torch_utils.calc_heading_quat_inv(root_rot, w_last)
+    # heading_rot = torch_utils.calc_heading_quat_inv(root_rot, w_last)
+    heading_rot = torch_utils.calc_heading_quat_inv(root_rot)
     local_tar_pos = rotations.quat_rotate(heading_rot, tar_pos, w_last)
 
     obs = local_tar_pos
     return obs
 
 @torch.jit.script
-def compute_reach_reward(reach_body_pos, root_rot, tar_pos, tar_speed, dt):
-    # type: (Tensor, Tensor, Tensor, float, float) -> Tensor
+def compute_reach_reward(reach_body_pos, tar_pos):
+    # type: (Tensor, Tensor) -> Tensor
     pos_err_scale = 4.0
     
     pos_diff = tar_pos - reach_body_pos
