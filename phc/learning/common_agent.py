@@ -257,6 +257,8 @@ class CommonAgent(a2c_continuous.A2CAgent):
         train_info['update_time'] = update_time
         train_info['total_time'] = total_time
         self._record_train_batch_info(batch_dict, train_info)
+        if hasattr(self.env, "results"):
+            train_info.update(self.env.results)
         return train_info
     
     def get_action_values(self, obs):
