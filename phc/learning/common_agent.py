@@ -47,6 +47,8 @@ class CommonAgent(a2c_continuous.A2CAgent):
         self.clip_actions = config.get('clip_actions', True)
         self._save_intermediate = config.get('save_intermediate', False)
 
+        self.eval_metrics_every = config.get('eval_metrics_every', 20)
+
         net_config = self._build_net_config()
         
         if self.normalize_input:
@@ -164,7 +166,12 @@ class CommonAgent(a2c_continuous.A2CAgent):
                     if (self._save_intermediate) and (epoch_num % (self.save_freq) == 0):
                         eval_info = self.eval()
                         train_info_dict.update(eval_info)
-                    
+
+                    elif epoch_num % self.eval_metrics_every == 0:
+                        results = getattr(self.vec_env.env.task, 'results')
+                        if len(results) > 0:
+                            train_info_dict.update(results)
+
                     train_info_dict.update({"episode_lengths": mean_lengths, "mean_rewards": np.mean(mean_rewards)})
                     self._log_train_info(train_info_dict, frame)
 
@@ -257,8 +264,6 @@ class CommonAgent(a2c_continuous.A2CAgent):
         train_info['update_time'] = update_time
         train_info['total_time'] = total_time
         self._record_train_batch_info(batch_dict, train_info)
-        if hasattr(self.env, "results"):
-            train_info.update(self.env.results)
         return train_info
     
     def get_action_values(self, obs):
