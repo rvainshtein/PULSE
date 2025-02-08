@@ -22,11 +22,11 @@ import isaacgym.torch_utils as itu
 import numpy as np
 from scipy.spatial.transform import Rotation as sRot
 from phc.utils.flags import flags
-
+from phc.env.tasks.pm.base import PMBase
 TAR_ACTOR_ID = 1
 
 
-class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
+class HumanoidDirection(PMBase):
     def __init__(self, cfg, sim_params, physics_engine, device_type, device_id, headless):
         self.config = cfg.env
 
@@ -85,6 +85,10 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
 
         self._tar_speed = torch.ones(
             [self.num_envs], device=self.device, dtype=torch.float
+        )
+
+        self._heading_turn_steps = torch.zeros(
+            [self.num_envs], device=self.device, dtype=torch.int64
         )
 
         if (not self.headless):
@@ -197,7 +201,28 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
             self.reset_heading_task(rest_env_ids)
 
     def reset_heading_task(self, env_ids):
+        if len(env_ids) > 0:
+            # Make sure the test has started + agent started from a valid position (if it failed, then it's not valid)
+            active_envs = (self._current_accumulated_errors[env_ids] > 0) & (
+                    (self._last_length[env_ids] - self._heading_turn_steps[env_ids]) > 0
+            )
+            average_distances = self._current_accumulated_errors[env_ids][
+                                    active_envs
+                                ] / (
+                                        self._last_length[env_ids][active_envs]
+                                        - self._heading_turn_steps[env_ids][active_envs]
+                                )
+            self._distances.extend(average_distances.cpu().tolist())
+            self._current_accumulated_errors[env_ids] = 0
+            self._failures.extend(
+                (self._current_failures[env_ids][active_envs] > 0).cpu().tolist()
+            )
+            self._current_failures[env_ids] = 0
+        else:
+            env_ids = torch.arange(self.num_envs, device=self.device)
+
         n = len(env_ids)
+
         if np.random.binomial(1, self._random_heading_probability):
             dir_theta = 2 * np.pi * torch.rand(n, device=self.device) - np.pi
             tar_speed = (self._tar_speed_max - self._tar_speed_min) * torch.rand(
@@ -240,6 +265,7 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
         self._tar_dir_theta[env_ids] = dir_theta
         self._tar_dir[env_ids] = tar_dir
         self._heading_change_steps[env_ids] = self.progress_buf[env_ids] + change_steps
+        self._heading_turn_steps[env_ids] = 60 * 1 + self.progress_buf[env_ids]
 
     def _reset_task(self, env_ids):
         if len(env_ids) > 0:
@@ -312,6 +338,30 @@ class HumanoidDirection(humanoid_amp_task.HumanoidAMPTask):
             print(
                 f'error: {output_dict["tar_vel_err"].item():.3f}; tangent error: {output_dict["tangent_vel_err"].item():.3f}'
             )
+        self.compute_failures_and_distances()
+        self.accumulate_errors()
+
+    def compute_failures_and_distances(self):
+        current_state = self.get_bodies_state()
+        body_pos, body_rot = (
+            current_state.body_pos,
+            current_state.body_rot,
+        )
+        root_vel = self._prev_root_pos[:, :2] - body_pos[:, 0, :2]
+        tar_dir_vel = self._tar_dir[:] * self._tar_speed[:].unsqueeze(-1) * self.dt
+        tangent_vel = root_vel - tar_dir_vel
+        tangent_vel_error = torch.norm(tangent_vel, dim=-1)
+        turning_envs = self._heading_turn_steps > self.progress_buf
+        turned_envs = ~turning_envs
+
+        tar_dir_speed = torch.sum(self._tar_dir * root_vel, dim=-1)
+        tar_speed_error = (self._tar_speed - tar_dir_speed) / self._tar_speed
+
+        self._current_accumulated_errors[turned_envs] += tangent_vel_error[turned_envs]
+        self._current_failures[turned_envs] += torch.abs(tar_speed_error[turned_envs]) > 0.25
+        self._current_failures[turning_envs] = 0
+        self._current_accumulated_errors[turning_envs] = 0
+        self._last_length[:] = self.progress_buf[:]
 
     def _draw_task(self):
         self._update_marker()
@@ -425,7 +475,9 @@ def compute_heading_reward(
     tar_speed: The target speed
     dt: The time step
     """
-    vel_err_scale = 0.25
+    # vel_err_scale = 0.25
+    # vel_err_scale = 1.0
+    vel_err_scale = 10.0
     tangent_err_w = 0.1
 
     delta_root_pos = root_pos - prev_root_pos
@@ -438,13 +490,10 @@ def compute_heading_reward(
     tangent_speed = torch.sum(tangent_vel, dim=-1)
 
     tar_vel_err = tar_speed - tar_dir_speed
+    tar_vel_err_rel = tar_vel_err / tar_speed
     tangent_vel_err = tangent_speed
     dir_reward = torch.exp(
-        -vel_err_scale
-        * (
-                tar_vel_err * tar_vel_err
-                + tangent_err_w * tangent_vel_err * tangent_vel_err
-        )
+        -(vel_err_scale * tar_vel_err_rel * tar_vel_err_rel + tangent_err_w * tangent_vel_err * tangent_vel_err)
     )
 
     speed_mask = tar_dir_speed < -0.5
@@ -452,8 +501,9 @@ def compute_heading_reward(
     output_dict = {
         "tar_dir_speed": tar_dir_speed,
         "tangent_speed": tangent_speed,
-        "tar_vel_err": tar_vel_err,
-        "tangent_vel_err": tangent_vel_err,
+        "tar_vel_err": tar_vel_err * tar_vel_err,
+        "tar_vel_err_rel": tar_vel_err_rel * tar_vel_err_rel,
+        "tangent_vel_err": tangent_err_w * tangent_vel_err * tangent_vel_err,
         "dir_reward": dir_reward,
     }
     return dir_reward, output_dict

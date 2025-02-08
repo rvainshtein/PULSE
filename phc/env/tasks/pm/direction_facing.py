@@ -4,6 +4,7 @@
 # and any modifications thereto.  Any use, reproduction, disclosure or
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
+import math
 from typing import Tuple, Dict
 
 import isaacgym.torch_utils as itu
@@ -11,10 +12,11 @@ import numpy as np
 import torch
 from torch import Tensor
 from utils import torch_utils
+from isaac_utils import rotations
 
 from phc.env.tasks.pm.direction import HumanoidDirection, compute_heading_reward
 from phc.utils.torch_utils_pm import calc_heading_quat
-from poselib.poselib.core import rotation3d as rotations
+# from poselib.poselib.core import rotation3d as rotations
 
 TAR_ACTOR_ID = 1
 
@@ -39,6 +41,9 @@ class HumanoidDirectionFacing(HumanoidDirection):
         self._heading_turn_steps = torch.zeros(
             [self.num_envs], device=self.device, dtype=torch.int64
         )
+        self.facing_obs = torch.zeros(
+            (self.num_envs, 2), device=self.device, dtype=torch.float
+        )
 
     def get_pm_obs_size(self):
         return super().get_pm_obs_size() + 2
@@ -48,11 +53,33 @@ class HumanoidDirectionFacing(HumanoidDirection):
         if env_ids is None:
             env_ids = torch.arange(self.num_envs)
         root_states = self._root_states[env_ids]
-        facing_obs = compute_facing_observations(root_states, self._tar_dir[env_ids])
+        facing_obs = compute_facing_observations(
+            root_states, self._tar_facing_dir[env_ids]
+        )
         obs = torch.cat([self.direction_obs[env_ids], facing_obs], dim=-1)
         return obs
+
     def reset_heading_task(self, env_ids):
         super().reset_heading_task(env_ids)
+        if len(env_ids) > 0:
+            # Make sure the test has started + agent started from a valid position (if it failed, then it's not valid)
+            active_envs = (self._current_accumulated_errors[env_ids] > 0) & (
+                (self._last_length[env_ids] - self._heading_turn_steps[env_ids]) > 0
+            )
+            average_distances = self._current_accumulated_errors[env_ids][
+                active_envs
+            ] / (
+                self._last_length[env_ids][active_envs]
+                - self._heading_turn_steps[env_ids][active_envs]
+            )
+            self._distances.extend(average_distances.cpu().tolist())
+            self._current_accumulated_errors[env_ids] = 0
+            self._failures.extend(
+                (self._current_failures[env_ids][active_envs] > 0).cpu().tolist()
+            )
+            self._current_failures[env_ids] = 0
+        else:
+            env_ids = torch.arange(self.num_envs)
         n = len(env_ids)
         if np.random.binomial(1, self._random_heading_probability):
             face_dir_theta = 2 * torch.pi * torch.rand(n, device=self.device) - torch.pi
@@ -98,6 +125,39 @@ class HumanoidDirectionFacing(HumanoidDirection):
                 f'error: {output_dict["tar_vel_err"].item():.3f}; tangent error: {output_dict["tangent_vel_err"].item():.3f}'
             )
 
+        self.compute_failures_and_distances()
+        self.accumulate_errors()
+
+    def compute_failures_and_distances(self):
+        current_state = self.get_bodies_state()
+        body_pos, body_rot = (
+            current_state.body_pos,
+            current_state.body_rot,
+        )
+        root_vel = self._prev_root_pos[:, :2] - body_pos[:, 0, :2]
+        tar_dir_vel = self._tar_dir[:] * self._tar_speed[:].unsqueeze(-1) * self.dt
+        tangent_vel = root_vel - tar_dir_vel
+        tangent_vel_error = torch.norm(tangent_vel, dim=-1)
+        turning_envs = self._heading_turn_steps > self.progress_buf
+        turned_envs = ~turning_envs
+        # Turn 3d rotation to flat heading quaternion
+        facing_quat = calc_heading_quat(body_rot[:, 0], w_last=True)
+        # Turn 2 vector to quaternion
+        angle = rotations.vec_to_heading(self._tar_facing_dir)
+        neg = angle < 0
+        angle[neg] += 2 * torch.pi
+        tar_facing_quat = rotations.heading_to_quat(angle, w_last=True)
+        # Compute angle error
+        facing_err = quat_diff_norm(facing_quat, tar_facing_quat, w_last=True)
+        facing_err_degrees = facing_err * 180 / torch.pi
+        self._current_accumulated_errors[turned_envs] += tangent_vel_error[turned_envs]
+        self._current_failures[turned_envs] += (
+                                                       45 < facing_err_degrees[turned_envs]
+                                               ) | (facing_err_degrees[turned_envs] < -45)
+        self._current_failures[turning_envs] = 0
+        self._current_accumulated_errors[turning_envs] = 0
+        self._last_length[:] = self.progress_buf[:]
+
 class HumanoidDirectionFacingZ(HumanoidDirectionFacing):
     def __init__(self, cfg, sim_params, physics_engine, device_type, device_id, headless):
         super().__init__(cfg=cfg, sim_params=sim_params, physics_engine=physics_engine, device_type=device_type,
@@ -120,13 +180,14 @@ class HumanoidDirectionFacingZ(HumanoidDirectionFacing):
 ###=========================jit functions=========================###
 #####################################################################
 @torch.jit.script
-def compute_facing_observations(root_states, tar_face_dir):
+def compute_facing_observations(root_states, tar_face_dir, w_last=True):
+    # type: (Tensor, Tensor, bool) -> Tensor
     root_rot = root_states[:, 3:7]
     heading_rot = torch_utils.calc_heading_quat_inv(root_rot)
     tar_face_dir3d = torch.cat(
         [tar_face_dir, torch.zeros_like(tar_face_dir[..., 0:1])], dim=-1
     )
-    local_tar_face_dir = rotations.quat_rotate(heading_rot, tar_face_dir3d)
+    local_tar_face_dir = rotations.quat_rotate(heading_rot, tar_face_dir3d, w_last)
     local_tar_face_dir = local_tar_face_dir[..., 0:2]
     return local_tar_face_dir
 
@@ -140,10 +201,10 @@ def compute_facing_reward(root_pos: Tensor, prev_root_pos: Tensor, root_rot: Ten
 
     dir_reward_w = 0.7
     facing_reward_w = 0.3
-    heading_rot = calc_heading_quat(root_rot, True)
+    heading_rot = calc_heading_quat(root_rot, w_last=True)
     facing_dir = torch.zeros_like(root_pos)
     facing_dir[..., 0] = 1.0
-    facing_dir = itu.quat_rotate(heading_rot, facing_dir)
+    facing_dir = rotations.quat_rotate(heading_rot, facing_dir, w_last=True)
     facing_err = torch.sum(tar_face_dir * facing_dir[..., 0:2], dim=-1)
     facing_reward = torch.clamp_min(facing_err, 0.0)
 
@@ -155,3 +216,16 @@ def compute_facing_reward(root_pos: Tensor, prev_root_pos: Tensor, root_rot: Ten
     output_dict["facing_reward"] = facing_reward
 
     return reward, output_dict
+
+@torch.jit.script
+def quat_diff_norm(quat1: Tensor, quat2: Tensor, w_last: bool):
+    if w_last:
+        w = 3
+    else:
+        w = 0
+    quat1inv = rotations.quat_conjugate(quat1, w_last)
+    mul = rotations.quat_mul(quat1inv, quat2, w_last)
+    norm = mul[..., w].clip(-1, 1).arccos() * 2
+    # Trying both rotation directions
+    norm = torch.min(norm, math.pi * 2 - norm)
+    return norm
