@@ -4,7 +4,7 @@ defaults:
   - /learning/pulse_z_task
   - /env/env_pulse_amp
   - /opt/low_compute
-  - /terrain/complex
+  - /terrain/flat
 
 
 exp_name: pm
