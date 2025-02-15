@@ -38,9 +38,6 @@ class HumanoidReach(PMBase):
             [self.num_envs, 3], device=self.device, dtype=torch.float
         )
 
-        self._last_failures = torch.zeros(
-            [self.num_envs], device=self.device, dtype=torch.bool
-        )
         self.w_last = True
         reach_body_name = cfg.env.reach_params.reach_body_name
         self._reach_body_id = self._build_reach_body_id_tensor(self.envs[0], self.humanoid_handles[0], reach_body_name)
@@ -142,7 +139,7 @@ class HumanoidReach(PMBase):
         if len(env_ids) > 0:
             # Make sure the test has started + agent started from a valid position (if it failed, then it's not valid)
             active_envs = (self._current_accumulated_errors[env_ids] > 0) & (
-                ~self._last_failures[env_ids]
+                    (self._last_length[env_ids] - self._tar_reach_steps[env_ids]) > 0
             )
             average_distances = self._current_accumulated_errors[env_ids][
                                     active_envs
@@ -155,7 +152,6 @@ class HumanoidReach(PMBase):
             self._failures.extend(
                 (self._current_failures[env_ids][active_envs] > 0).cpu().tolist()
             )
-            self._last_failures[env_ids] = self._current_failures[env_ids] > 0
             self._current_failures[env_ids] = 0
         else:
             env_ids = torch.arange(self.num_envs, device=self.device)
@@ -238,7 +234,7 @@ class HumanoidReach(PMBase):
             measurement_started
         ]
         self._current_failures[measurement_started] += (
-                distance_to_target[measurement_started] > 0.5
+                distance_to_target[measurement_started] > 0.2
         )
         self._current_failures[measurement_not_started] = 0
         self._current_accumulated_errors[measurement_not_started] = 0

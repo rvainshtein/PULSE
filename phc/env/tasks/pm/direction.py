@@ -23,6 +23,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as sRot
 from phc.utils.flags import flags
 from phc.env.tasks.pm.base import PMBase
+
 TAR_ACTOR_ID = 1
 
 
@@ -323,7 +324,6 @@ class HumanoidDirection(PMBase):
         )
 
         self.reward_raw = self.rew_buf[:, None]
-        self._prev_root_pos[:] = root_pos
 
         # print the target speed of the env and the speed actually achieved in that direction
 
@@ -340,25 +340,26 @@ class HumanoidDirection(PMBase):
             )
         self.compute_failures_and_distances()
         self.accumulate_errors()
+        self._prev_root_pos[:] = root_pos
 
     def compute_failures_and_distances(self):
-        current_state = self.get_bodies_state()
-        body_pos, body_rot = (
-            current_state.body_pos,
-            current_state.body_rot,
-        )
-        root_vel = self._prev_root_pos[:, :2] - body_pos[:, 0, :2]
-        tar_dir_vel = self._tar_dir[:] * self._tar_speed[:].unsqueeze(-1) * self.dt
-        tangent_vel = root_vel - tar_dir_vel
-        tangent_vel_error = torch.norm(tangent_vel, dim=-1)
         turning_envs = self._heading_turn_steps > self.progress_buf
         turned_envs = ~turning_envs
 
-        tar_dir_speed = torch.sum(self._tar_dir * root_vel, dim=-1)
-        tar_speed_error = (self._tar_speed - tar_dir_speed) / self._tar_speed
+        delta_root_pos = self.get_humanoid_root_states()[..., :3] - self._prev_root_pos[:]
+        root_vel = delta_root_pos / self.dt
+        tar_dir_speed = torch.sum(self._tar_dir * root_vel[..., :2], dim=-1)
+
+        tar_dir_vel = tar_dir_speed.unsqueeze(-1) * self._tar_dir[:]
+        tangent_vel = root_vel[..., :2] - tar_dir_vel
+
+        tangent_vel_error = torch.sum(tangent_vel, dim=-1)
+
+        tar_vel_err = self._tar_speed[:] - tar_dir_speed
+        tar_vel_err_rel = torch.where(self._tar_speed[:] > 1e-4, tar_vel_err / self._tar_speed[:], tar_vel_err)
 
         self._current_accumulated_errors[turned_envs] += tangent_vel_error[turned_envs]
-        self._current_failures[turned_envs] += torch.abs(tar_speed_error[turned_envs]) > 0.25
+        self._current_failures[turned_envs] += torch.abs(tar_vel_err_rel[turned_envs]) > 0.2
         self._current_failures[turning_envs] = 0
         self._current_accumulated_errors[turning_envs] = 0
         self._last_length[:] = self.progress_buf[:]
@@ -490,7 +491,8 @@ def compute_heading_reward(
     tangent_speed = torch.sum(tangent_vel, dim=-1)
 
     tar_vel_err = tar_speed - tar_dir_speed
-    tar_vel_err_rel = tar_vel_err / tar_speed
+    # take tar_vel_err / tar_speed where tar_speed isn't zero, otherwise tar_vell_err
+    tar_vel_err_rel = torch.where(tar_speed > 1e-4, tar_vel_err / tar_speed, tar_vel_err)
     tangent_vel_err = tangent_speed
     dir_reward = torch.exp(
         -(vel_err_scale * tar_vel_err_rel * tar_vel_err_rel + tangent_err_w * tangent_vel_err * tangent_vel_err)
