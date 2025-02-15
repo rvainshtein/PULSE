@@ -322,7 +322,7 @@ def main(cfg_hydra: DictConfig) -> None:
 
     cfg.train = not cfg.test
     project_name = cfg.get("project_name", "PULSE")
-    if (not cfg.no_log) and (not cfg.test) and (not cfg.debug):
+    if (not cfg.no_log) and (not cfg.debug):
         wandb.init(
             project=project_name,
             resume=not cfg.resume_str is None,

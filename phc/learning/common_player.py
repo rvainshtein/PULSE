@@ -1,4 +1,5 @@
 import torch
+import wandb
 
 from rl_games.algos_torch import players
 from rl_games.algos_torch import torch_ext
@@ -126,6 +127,7 @@ class CommonPlayer(players.PpoPlayerContinuous):
                                 print_game_res = True
                                 game_res = info.get('scores', 0.5)
                         if self.print_stats:
+                            import pdb; pdb.set_trace()
                             if print_game_res:
                                 print('reward:', cur_rewards / done_count, 'steps:', cur_steps / done_count, 'w:', game_res)
                             else:
@@ -144,7 +146,13 @@ class CommonPlayer(players.PpoPlayerContinuous):
         else:
             print('av reward:', sum_rewards / games_played * n_game_life, 'av steps:', sum_steps / games_played * n_game_life)
 
-        return
+        results = self.env.task.results
+        results.update({
+            'env/Env reach_success': results['reach_success'],
+            'env/Env reach_distance': results['reach_distance'],
+            'core/Episode Reward': sum_rewards / games_played * n_game_life,
+        })
+        wandb.log(results)
 
     def obs_to_torch(self, obs):
         obs = super().obs_to_torch(obs)

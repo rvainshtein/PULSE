@@ -1,0 +1,15 @@
+learning:
+  params:
+    config:
+      player:
+        games_num: 5
+
+
+env:
+  episode_length: 300
+  num_envs: 1024
+  enable_height_termination: False  # check in protomotions
+
+epoch: -1
+headless: True
+test: True
