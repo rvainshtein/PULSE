@@ -321,9 +321,11 @@ def main(cfg_hydra: DictConfig) -> None:
         flags.real_traj = True
 
     cfg.train = not cfg.test
-    project_name = cfg.get("project_name", "PULSE")
+    project_name = cfg.get("wandb", {}).get("project", "PULSE")
+    entity = cfg.get("wandb", {}).get("entity")
     if (not cfg.no_log) and (not cfg.debug):
         wandb.init(
+            entity=entity,
             project=project_name,
             resume=not cfg.resume_str is None,
             id=cfg.resume_str,
