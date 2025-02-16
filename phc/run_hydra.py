@@ -349,7 +349,10 @@ def main(cfg_hydra: DictConfig) -> None:
                                                     cfg_train["params"]["config"]['name'] + "_" + str(cfg.epoch).zfill(
                                                         8) + '.pth')
     elif cfg.epoch == -1:
-        path = osp.join(cfg.output_path, cfg_train["params"]["config"]['name'] + '.pth')
+        if cfg.get("eval_checkpoint_path"):
+            path = cfg.eval_checkpoint_path
+        else:
+            path = osp.join(cfg.output_path, cfg_train["params"]["config"]['name'] + '.pth')
         if osp.exists(path):
             cfg_train["params"]["load_path"] = path
             cfg_train["params"]["load_checkpoint"] = True
