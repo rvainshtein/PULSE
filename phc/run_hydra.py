@@ -298,6 +298,7 @@ def main(cfg_hydra: DictConfig) -> None:
     cfg = EasyDict(OmegaConf.to_container(cfg_hydra, resolve=True))
     seed = cfg.get("seed", -1)
     cfg.exp_name = cfg.exp_name + "_seed" + str(seed)
+    cfg.output_path = cfg.output_path + "_seed" + str(seed)
     set_np_formatting()
 
     # cfg, cfg_train, logdir = load_cfg(args)
