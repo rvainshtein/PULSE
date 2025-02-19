@@ -33,6 +33,8 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
         else:
             self.head_body_id = self.head_id = self.get_body_id("head")
 
+        self.w_last = True
+
         self.create_terrain()
         self.build_termination_heights()
         self._failures = []
