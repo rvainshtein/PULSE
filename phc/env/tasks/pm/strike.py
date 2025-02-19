@@ -78,7 +78,7 @@ class HumanoidStrike(PMBase):
         self._build_target(env_id, env_ptr)
 
     def _load_target_asset(self):
-        asset_root = "phys_anim/data/assets/urdf/"
+        asset_root = "phc/data/assets/urdf/"
         asset_file = "strike_target.urdf"
 
         asset_options = gymapi.AssetOptions()
@@ -184,6 +184,7 @@ class HumanoidStrike(PMBase):
         tar_states = self._target_states[env_ids]
 
         obs = compute_strike_observations(root_states, tar_states)
+        return obs
 
     def compute_reward(self, actions):
         tar_pos = self._target_states[..., 0:3]
