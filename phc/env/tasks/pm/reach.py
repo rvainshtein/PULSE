@@ -129,6 +129,7 @@ class HumanoidReach(PMBase):
         return body_id
 
     def _update_task(self):
+        super()._update_task()
         reset_task_mask = self.progress_buf >= self._tar_change_steps
         rest_env_ids = reset_task_mask.nonzero(as_tuple=False).flatten()
         if len(rest_env_ids) > 0:
@@ -153,49 +154,47 @@ class HumanoidReach(PMBase):
                 (self._current_failures[env_ids][active_envs] > 0).cpu().tolist()
             )
             self._current_failures[env_ids] = 0
-        else:
-            env_ids = torch.arange(self.num_envs, device=self.device)
 
         super()._reset_task(env_ids)
         n = len(env_ids)
+        if n > 0:
+            rand_pos = torch.rand([n, 3], device=self.device)
+            rand_pos[..., 0:2] = self.config.reach_params.tar_dist_max * (
+                    1.5 * rand_pos[..., 0:2] - 0.75
+            )
+            rand_pos[..., 2] = (
+                                       self.config.reach_params.tar_height_max
+                                       - self.config.reach_params.tar_height_min
+                               ) * rand_pos[..., 2] + self.config.reach_params.tar_height_min
 
-        rand_pos = torch.rand([n, 3], device=self.device)
-        rand_pos[..., 0:2] = self.config.reach_params.tar_dist_max * (
-                1.5 * rand_pos[..., 0:2] - 0.75
-        )
-        rand_pos[..., 2] = (
-                                   self.config.reach_params.tar_height_max
-                                   - self.config.reach_params.tar_height_min
-                           ) * rand_pos[..., 2] + self.config.reach_params.tar_height_min
+            change_steps = torch.randint(
+                low=self.config.reach_params.change_steps_min,
+                high=self.config.reach_params.change_steps_max,
+                size=(n,),
+                device=self.device,
+                dtype=torch.int64,
+            )
+            reach_steps = torch.randint(
+                low=self.config.reach_params.reach_steps_min,
+                high=self.config.reach_params.reach_steps_max,
+                size=(n,),
+                device=self.device,
+                dtype=torch.int64,
+            )
+            # min with change_steps to avoid reaching AFTER changing
+            reach_steps = torch.min(reach_steps, change_steps)
 
-        change_steps = torch.randint(
-            low=self.config.reach_params.change_steps_min,
-            high=self.config.reach_params.change_steps_max,
-            size=(n,),
-            device=self.device,
-            dtype=torch.int64,
-        )
-        reach_steps = torch.randint(
-            low=self.config.reach_params.reach_steps_min,
-            high=self.config.reach_params.reach_steps_max,
-            size=(n,),
-            device=self.device,
-            dtype=torch.int64,
-        )
-        # min with change_steps to avoid reaching AFTER changing
-        reach_steps = torch.min(reach_steps, change_steps)
+            bodies_positions = self.get_body_positions()
+            root_pos = bodies_positions[env_ids, 0, :]
+            root_pos[:, -1:] = 0
 
-        bodies_positions = self.get_body_positions()
-        root_pos = bodies_positions[env_ids, 0, :]
-        root_pos[:, -1:] = 0
+            marker_pos = root_pos + rand_pos
+            marker_pos[:, -1:] += self.get_ground_heights(marker_pos[:, :2]).view(-1, 1)
 
-        marker_pos = root_pos + rand_pos
-        marker_pos[:, -1:] += self.get_ground_heights(marker_pos[:, :2]).view(-1, 1)
-
-        # Marker position is represented relative to the character pos, without terrains.
-        self._tar_pos[env_ids, :] = marker_pos
-        self._tar_change_steps[env_ids] = self.progress_buf[env_ids] + change_steps
-        self._tar_reach_steps[env_ids] = self.progress_buf[env_ids] + reach_steps
+            # Marker position is represented relative to the character pos, without terrains.
+            self._tar_pos[env_ids, :] = marker_pos
+            self._tar_change_steps[env_ids] = self.progress_buf[env_ids] + change_steps
+            self._tar_reach_steps[env_ids] = self.progress_buf[env_ids] + reach_steps
 
     def _compute_task_obs(self, env_ids=None):
         if (env_ids is None):
