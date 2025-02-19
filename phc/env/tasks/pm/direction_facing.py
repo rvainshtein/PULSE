@@ -150,10 +150,13 @@ class HumanoidDirectionFacing(HumanoidDirection):
         # Compute angle error
         facing_err = quat_diff_norm(facing_quat, tar_facing_quat, w_last=True)
         facing_err_degrees = facing_err * 180 / torch.pi
+        tar_dir_speed = torch.sum(self._tar_dir * root_vel[..., :2], dim=-1)
+        tar_vel_err = self._tar_speed[:] - tar_dir_speed
+        tar_vel_err_rel = torch.where(self._tar_speed[:] > 1e-4, tar_vel_err / self._tar_speed[:], tar_vel_err)
         self._current_accumulated_errors[turned_envs] += tangent_vel_error[turned_envs]
         self._current_failures[turned_envs] += (
                                                        45 < facing_err_degrees[turned_envs]
-                                               ) | (facing_err_degrees[turned_envs] < -45)
+                                               ) | (facing_err_degrees[turned_envs] < -45) | (torch.abs(tar_vel_err_rel[turned_envs]) > 0.2)
         self._current_failures[turning_envs] = 0
         self._current_accumulated_errors[turning_envs] = 0
         self._last_length[:] = self.progress_buf[:]
