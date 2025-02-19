@@ -36,7 +36,7 @@ from torch import Tensor
 from phc.env.tasks.pm.base import PMBase
 
 
-class MaskedMimicStrike(PMBase):
+class HumanoidStrike(PMBase):
     def __init__(self, cfg, sim_params, physics_engine, device_type, device_id, headless):
         super().__init__(cfg=cfg,
                          sim_params=sim_params,
@@ -252,6 +252,22 @@ class MaskedMimicStrike(PMBase):
             self.gym.add_lines(self.viewer, env_ptr, curr_verts.shape[0], curr_verts, cols)
 
 
+class HumanoidStrikeZ(HumanoidStrike):
+    def __init__(self, cfg, sim_params, physics_engine, device_type, device_id, headless):
+        super().__init__(cfg=cfg, sim_params=sim_params, physics_engine=physics_engine, device_type=device_type,
+                         device_id=device_id, headless=headless)
+        self.initialize_z_models()
+        return
+
+    def step(self, actions):
+        self.step_z(actions)
+        return
+
+    def _setup_character_props(self, key_bodies):
+        super()._setup_character_props(key_bodies)
+        super()._setup_character_props_z()
+
+
 #####################################################################
 ###=========================jit functions=========================###
 #####################################################################
@@ -366,3 +382,5 @@ def compute_humanoid_reset(reset_buf, progress_buf, contact_buf, non_termination
     reset = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), terminated)
 
     return reset, terminated
+
+

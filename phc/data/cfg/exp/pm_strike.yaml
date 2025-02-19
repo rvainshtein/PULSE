@@ -1,0 +1,20 @@
+# @package _global_
+
+defaults:
+  - /exp/base
+
+exp_name: pm_strike
+
+env:
+  task: HumanoidStrikeZ
+  episode_length: 1000
+  strike_params:
+    strike_body_names: ["R_Hand","R_Wrist","R_Elbow"]
+    tar_dist_min: 0.5
+    tar_dist_max: 10.0
+    near_dist: 1.5
+    near_prob: 0.5
+    tar_speed: 1.0
+    enable_success_termination: false # Enable termination when the target is reached
+    obs_size: 15
+
