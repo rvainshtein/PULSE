@@ -186,7 +186,7 @@ class HumanoidStrike(PMBase):
         obs = compute_strike_observations(root_states, tar_states)
         return obs
 
-    def compute_reward(self, actions):
+    def _compute_reward(self, actions):
         tar_pos = self._target_states[..., 0:3]
         tar_rot = self._target_states[..., 3:7]
         char_root_state = self._humanoid_root_states
