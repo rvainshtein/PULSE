@@ -5,7 +5,7 @@ learning:
     config:
       player:
         games_num: 5
-        minibatch_size: 2048
+      minibatch_size: 2048
 
 
 env:
