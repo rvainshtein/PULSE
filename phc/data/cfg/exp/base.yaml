@@ -8,6 +8,8 @@ defaults:
 
 
 exp_name: pm
+wandb:
+  project: pulse_debug
 
 learning:
   params:
