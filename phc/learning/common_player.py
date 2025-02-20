@@ -127,7 +127,6 @@ class CommonPlayer(players.PpoPlayerContinuous):
                                 print_game_res = True
                                 game_res = info.get('scores', 0.5)
                         if self.print_stats:
-                            import pdb; pdb.set_trace()
                             if print_game_res:
                                 print('reward:', cur_rewards / done_count, 'steps:', cur_steps / done_count, 'w:', game_res)
                             else:
