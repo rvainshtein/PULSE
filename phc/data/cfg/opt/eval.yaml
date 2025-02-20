@@ -9,7 +9,7 @@ learning:
 env:
   episode_length: 300
   num_envs: 128
-  enable_height_termination: False  # check in protomotions
+  enable_height_termination: True  # check in protomotions
 
 epoch: -1
 headless: True
