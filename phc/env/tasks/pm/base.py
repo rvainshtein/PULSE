@@ -18,6 +18,12 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
 
         self.device = device_type + ':' + str(device_id)
 
+        perturbations = self.config.get("perturbations", {})
+        self.gravity_z = perturbations.get("gravity_z", -9.81)
+        if "friction" in perturbations:
+            self.config.simulator.plane.static_friction = perturbations["friction"]
+            self.config.simulator.plane.dynamic_friction = perturbations["friction"]
+
         super().__init__(cfg, sim_params, physics_engine, device_type, device_id, headless)
 
         humanoid_asset = self.humanoid_assets[0]
@@ -50,6 +56,41 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
         )
 
         self.results = {}
+
+    def set_sim_params_up_axis(self, sim_params, axis):
+        if axis == 'z':
+            sim_params.up_axis = gymapi.UP_AXIS_Z
+            sim_params.gravity.x = 0
+            sim_params.gravity.y = 0
+            sim_params.gravity.z = self.gravity_z
+            return 2
+        return 1
+
+    def _build_env(self, env_id, env_ptr, humanoid_asset):
+        super()._build_env(env_id, env_ptr, humanoid_asset)
+        self.set_perturbations(env_ptr)
+
+    def set_perturbations(self, env_ptr):
+        perturbations = self.config.get("perturbations", {})
+        if "friction" in perturbations:
+            ground_friction = perturbations["friction"]
+            foot_names = ["L_Ankle", "R_Ankle", "L_Toe", "R_Toe"]
+            foot_handles = [self.gym.find_actor_rigid_body_handle(env_ptr, 0, name) for name in foot_names]
+            rb_shape = self.gym.get_actor_rigid_body_shape_indices(env_ptr, 0)
+            rb_shape_props = self.gym.get_actor_rigid_shape_properties(env_ptr, 0)
+            for foot_handle in foot_handles:
+                foot_shape = rb_shape[foot_handle]
+                rb_shape_props[foot_shape.start].friction = ground_friction
+                rb_shape_props[foot_shape.start].rolling_friction = ground_friction
+                rb_shape_props[foot_shape.start].torsion_friction = ground_friction
+            self.gym.set_actor_rigid_shape_properties(env_ptr, 0, rb_shape_props)
+        if "mass_multiplier" in perturbations:
+            mass_multiplier = perturbations["mass_multiplier"]
+            rb_props = self.gym.get_actor_rigid_body_properties(env_ptr, 0)
+            for body_name, multiplier in mass_multiplier.items():
+                body_handle = self.gym.find_actor_rigid_body_handle(env_ptr, 0, body_name)
+                rb_props[body_handle].mass *= multiplier
+            self.gym.set_actor_rigid_body_properties(env_ptr, 0, rb_props)
 
     def build_termination_heights(self):
         head_term_height = self.config.head_termination_height

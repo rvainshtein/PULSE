@@ -16,6 +16,7 @@ from isaac_utils import rotations
 
 from phc.env.tasks.pm.direction import HumanoidDirection, compute_heading_reward
 from phc.utils.torch_utils_pm import calc_heading_quat
+
 # from poselib.poselib.core import rotation3d as rotations
 
 TAR_ACTOR_ID = 1
@@ -64,14 +65,14 @@ class HumanoidDirectionFacing(HumanoidDirection):
         if len(env_ids) > 0:
             # Make sure the test has started + agent started from a valid position (if it failed, then it's not valid)
             active_envs = (self._current_accumulated_errors[env_ids] > 0) & (
-                (self._last_length[env_ids] - self._heading_turn_steps[env_ids]) > 0
+                    (self._last_length[env_ids] - self._heading_turn_steps[env_ids]) > 0
             )
             average_distances = self._current_accumulated_errors[env_ids][
-                active_envs
-            ] / (
-                self._last_length[env_ids][active_envs]
-                - self._heading_turn_steps[env_ids][active_envs]
-            )
+                                    active_envs
+                                ] / (
+                                        self._last_length[env_ids][active_envs]
+                                        - self._heading_turn_steps[env_ids][active_envs]
+                                )
             self._distances.extend(average_distances.cpu().tolist())
             self._current_accumulated_errors[env_ids] = 0
             self._failures.extend(
@@ -100,7 +101,7 @@ class HumanoidDirectionFacing(HumanoidDirection):
         self._tar_facing_dir_theta[env_ids] = face_dir_theta
 
         self._heading_turn_steps[env_ids] = (
-                30 * 1 + self.progress_buf[env_ids]
+                80 * 1 + self.progress_buf[env_ids]
         )  # Allow 15 frames (0.5sec) to turn.
 
     def _compute_reward(self, actions):
@@ -134,32 +135,39 @@ class HumanoidDirectionFacing(HumanoidDirection):
             current_state.body_pos,
             current_state.body_rot,
         )
-        root_vel = self._prev_root_pos[:, :2] - body_pos[:, 0, :2]
-        tar_dir_vel = self._tar_dir[:] * self._tar_speed[:].unsqueeze(-1) * self.dt
-        tangent_vel = root_vel - tar_dir_vel
-        tangent_vel_error = torch.norm(tangent_vel, dim=-1)
         turning_envs = self._heading_turn_steps > self.progress_buf
         turned_envs = ~turning_envs
+
+        delta_root_pos = self.get_humanoid_root_states()[..., :3] - self._prev_root_pos[:]
+        root_vel = delta_root_pos / self.dt
+        tar_dir_speed = torch.sum(self._tar_dir * root_vel[..., :2], dim=-1)
+
+        tar_dir_vel = tar_dir_speed.unsqueeze(-1) * self._tar_dir[:]
+        tangent_vel = root_vel[..., :2] - tar_dir_vel
+
+        tangent_vel_error = torch.sum(tangent_vel, dim=-1)
+
+        tar_vel_err = self._tar_speed[:] - tar_dir_speed
+        tar_vel_err_rel = torch.where(self._tar_speed[:] > 1e-4, tar_vel_err / self._tar_speed[:], tar_vel_err)
+
         # Turn 3d rotation to flat heading quaternion
-        facing_quat = calc_heading_quat(body_rot[:, 0], w_last=True)
+        facing_quat = torch_utils.calc_heading_quat(body_rot[:, 0], w_last=self.w_last)
         # Turn 2 vector to quaternion
         angle = rotations.vec_to_heading(self._tar_facing_dir)
         neg = angle < 0
         angle[neg] += 2 * torch.pi
-        tar_facing_quat = rotations.heading_to_quat(angle, w_last=True)
+        tar_facing_quat = rotations.heading_to_quat(angle, w_last=self.w_last)
         # Compute angle error
-        facing_err = quat_diff_norm(facing_quat, tar_facing_quat, w_last=True)
+        facing_err = quat_diff_norm(facing_quat, tar_facing_quat, self.w_last)
         facing_err_degrees = facing_err * 180 / torch.pi
-        tar_dir_speed = torch.sum(self._tar_dir * root_vel[..., :2], dim=-1)
-        tar_vel_err = self._tar_speed[:] - tar_dir_speed
-        tar_vel_err_rel = torch.where(self._tar_speed[:] > 1e-4, tar_vel_err / self._tar_speed[:], tar_vel_err)
+
         self._current_accumulated_errors[turned_envs] += tangent_vel_error[turned_envs]
-        self._current_failures[turned_envs] += (
-                                                       45 < facing_err_degrees[turned_envs]
-                                               ) | (facing_err_degrees[turned_envs] < -45) | (torch.abs(tar_vel_err_rel[turned_envs]) > 0.2)
+        self._current_failures[turned_envs] += torch.logical_or(torch.abs(facing_err_degrees[turned_envs]) > 45,
+                                                                torch.abs(tar_vel_err_rel[turned_envs]) > 0.2)
         self._current_failures[turning_envs] = 0
         self._current_accumulated_errors[turning_envs] = 0
         self._last_length[:] = self.progress_buf[:]
+
 
 class HumanoidDirectionFacingZ(HumanoidDirectionFacing):
     def __init__(self, cfg, sim_params, physics_engine, device_type, device_id, headless):
@@ -219,6 +227,7 @@ def compute_facing_reward(root_pos: Tensor, prev_root_pos: Tensor, root_rot: Ten
     output_dict["facing_reward"] = facing_reward
 
     return reward, output_dict
+
 
 @torch.jit.script
 def quat_diff_norm(quat1: Tensor, quat2: Tensor, w_last: bool):
