@@ -125,19 +125,27 @@ class HumanoidDirection(PMBase):
         return
 
     def _update_marker(self):
-        # Not yet copied
-        humanoid_root_pos = self._humanoid_root_states[..., 0:3]
-        self._marker_pos[..., 0:2] = humanoid_root_pos[..., 0:2]
-        self._marker_pos[..., 0] += 0.5 + 0.2 * self._tar_speed
-        self._marker_pos[..., 2] = 0.0
+        humanoid_root_pos = self.get_humanoid_root_states()[..., 0:3]
+        self._marker_pos[..., 0:2] = humanoid_root_pos[..., 0:2] + self._tar_dir
+        self._marker_pos[..., 2] = humanoid_root_pos[..., 2]
 
-        self._marker_rot[:] = 0
-        self._marker_rot[:, -1] = 1.0
+        heading_theta = (
+            self._tar_dir_theta
+        )  # torch.atan2(self._tar_dir[..., 1], self._tar_dir[..., 0])
+        heading_axis = torch.zeros_like(self._marker_pos)
+        heading_axis[..., -1] = 1.0
+        heading_q = rotations.quat_from_angle_axis(
+            heading_theta, heading_axis
+        )
+        self._marker_rot[:] = heading_q
 
-        self.gym.set_actor_root_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self._root_states),
-                                                     gymtorch.unwrap_tensor(self._marker_actor_ids),
-                                                     len(self._marker_actor_ids))
-        return
+        self.gym.set_actor_root_state_tensor_indexed(
+            self.sim,
+            gymtorch.unwrap_tensor(self._root_states),
+            gymtorch.unwrap_tensor(self._marker_actor_ids),
+            len(self._marker_actor_ids),
+        )
+
 
     def _create_envs(self, num_envs, spacing, num_per_row):
         if (not self.headless):
