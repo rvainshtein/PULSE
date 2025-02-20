@@ -305,7 +305,7 @@ def compute_location_observations(root_states, tar_pos, w_last=True):
     heading_rot_inv = torch_utils.calc_heading_quat_inv(root_rot)
     local_tar_pos = tar_pos - root_pos
 
-    local_tar_pos = torch_utils.quat_rotate(heading_rot_inv, local_tar_pos, w_last)
+    local_tar_pos = torch_utils.quat_rotate(heading_rot_inv, local_tar_pos)
 
     obs = local_tar_pos
     return obs
