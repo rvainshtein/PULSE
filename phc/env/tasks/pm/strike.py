@@ -219,7 +219,7 @@ class HumanoidStrike(PMBase):
         self._current_successes[:] = tar_rot_err < 0.2
         self._last_length[:] = self.progress_buf[:]
 
-    def compute_reset(self):
+    def _compute_reset(self):
         bodies_positions = self.get_body_positions()
 
         bodies_positions[..., 2] -= (
@@ -234,7 +234,7 @@ class HumanoidStrike(PMBase):
                                                                            self._rigid_body_pos,
                                                                            self._tar_contact_forces,
                                                                            self._strike_body_ids,
-                                                                           self.config.max_episode_length,
+                                                                           self.max_episode_length,
                                                                            self.config.enable_height_termination,
                                                                            termination_heights, )
 
