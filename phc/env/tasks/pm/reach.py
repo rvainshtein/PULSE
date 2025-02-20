@@ -41,12 +41,12 @@ class HumanoidReach(PMBase):
         self.w_last = True
         reach_body_name = cfg.env.reach_params.reach_body_name
         self._reach_body_id = self._build_reach_body_id_tensor(self.envs[0], self.humanoid_handles[0], reach_body_name)
-        
+
         if (not self.headless):
             self._build_marker_state_tensors()
 
         return
-    
+
     def _sample_ref_state(self, env_ids):
         motion_ids, motion_times, root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel,  rb_pos, rb_rot, body_vel, body_ang_vel = super()._sample_ref_state(env_ids)
         root_pos[..., :2] = 0.0 # Set the root position to be zero
@@ -98,7 +98,7 @@ class HumanoidReach(PMBase):
 
     def _build_env(self, env_id, env_ptr, humanoid_asset):
         super()._build_env(env_id, env_ptr, humanoid_asset)
-        
+
         if (not self.headless):
             self._build_marker(env_id, env_ptr)
 
@@ -106,7 +106,7 @@ class HumanoidReach(PMBase):
 
     def _build_marker(self, env_id, env_ptr):
         default_pose = gymapi.Transform()
-        
+
         marker_handle = self.gym.create_actor(env_ptr, self._marker_asset, default_pose, "marker", env_id, 2, 2)
         self.gym.set_rigid_body_color(env_ptr, marker_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.8, 0.0, 0.0))
         self._marker_handles.append(marker_handle)
@@ -117,11 +117,11 @@ class HumanoidReach(PMBase):
         num_actors = self._root_states.shape[0] // self.num_envs
         self._marker_states = self._root_states.view(self.num_envs, num_actors, self._root_states.shape[-1])[..., 1, :]
         self._marker_pos = self._marker_states[..., :3]
-        
+
         self._marker_actor_ids = self._humanoid_actor_ids + 1
 
         return
-    
+
     def _build_reach_body_id_tensor(self, env_ptr, actor_handle, body_name):
         body_id = self.gym.find_actor_rigid_body_handle(env_ptr, actor_handle, body_name)
         assert(body_id != -1)
@@ -203,7 +203,7 @@ class HumanoidReach(PMBase):
         else:
             root_states = self._humanoid_root_states[env_ids]
             tar_pos = self._tar_pos[env_ids]
-        
+
         reach_obs = compute_location_observations(root_states, tar_pos, self.w_last)
         return reach_obs
 
@@ -241,7 +241,7 @@ class HumanoidReach(PMBase):
 
     def _draw_task(self):
         self._update_marker()
-        
+
         cols = np.array([[0.0, 1.0, 0.0]], dtype=np.float32)
 
         self.gym.clear_lines(self.viewer)
@@ -273,22 +273,22 @@ class HumanoidReach(PMBase):
             self._output_motion_target_pos = []
 
         return
-    
+
 class HumanoidReachZ(HumanoidReach):
     def __init__(self, cfg, sim_params, physics_engine, device_type, device_id, headless):
         super().__init__(cfg=cfg, sim_params=sim_params, physics_engine=physics_engine, device_type=device_type, device_id=device_id, headless=headless)
         self.initialize_z_models()
         return
-    
+
     def step(self, actions):
         self.step_z(actions)
         return
-    
-    
+
+
     def _setup_character_props(self, key_bodies):
         super()._setup_character_props(key_bodies)
         super()._setup_character_props_z()
-        
+
         return
 
 #####################################################################
@@ -298,10 +298,14 @@ class HumanoidReachZ(HumanoidReach):
 @torch.jit.script
 def compute_location_observations(root_states, tar_pos, w_last=True):
     # type: (Tensor, Tensor, bool) -> Tensor
+    root_pos = root_states[:, 0:3]
     root_rot = root_states[:, 3:7]
-    # heading_rot = torch_utils.calc_heading_quat_inv(root_rot, w_last)
-    heading_rot = torch_utils.calc_heading_quat_inv(root_rot)
-    local_tar_pos = rotations.quat_rotate(heading_rot, tar_pos, w_last)
+
+    # heading_rot_inv = torch_utils.calc_heading_quat_inv(root_rot, w_last)
+    heading_rot_inv = torch_utils.calc_heading_quat_inv(root_rot)
+    local_tar_pos = tar_pos - root_pos
+
+    local_tar_pos = torch_utils.quat_rotate(heading_rot_inv, local_tar_pos, w_last)
 
     obs = local_tar_pos
     return obs
@@ -310,11 +314,11 @@ def compute_location_observations(root_states, tar_pos, w_last=True):
 def compute_reach_reward(reach_body_pos, tar_pos):
     # type: (Tensor, Tensor) -> Tensor
     pos_err_scale = 4.0
-    
+
     pos_diff = tar_pos - reach_body_pos
     pos_err = torch.sum(pos_diff * pos_diff, dim=-1)
     pos_reward = torch.exp(-pos_err_scale * pos_err)
-    
+
     reward = pos_reward
 
     return reward
