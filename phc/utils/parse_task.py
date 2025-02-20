@@ -42,13 +42,12 @@ from phc.env.tasks.humanoid_speed import HumanoidSpeed, HumanoidSpeedZ
 # from phc.env.tasks.humanoid_reach import HumanoidReach, HumanoidReachZ
 # from phc.env.tasks.humanoid_strike import HumanoidStrike, HumanoidStrikeZ
 from phc.env.tasks.humanoid_pedestrian_terrain import HumanoidPedestrianTerrain, HumanoidPedestrianTerrainZ
-from phc.env.tasks.pm.direction import HumanoidDirection,HumanoidDirectionZ
-from phc.env.tasks.pm.direction_facing import HumanoidDirectionFacing,HumanoidDirectionFacingZ
+from phc.env.tasks.pm.direction import HumanoidDirection, HumanoidDirectionZ
+from phc.env.tasks.pm.direction_facing import HumanoidDirectionFacing, HumanoidDirectionFacingZ
 from phc.env.tasks.pm.path_follower import HumanoidPathFollower, HumanoidPathFollowerZ
 from phc.env.tasks.pm.reach import HumanoidReach, HumanoidReachZ
 from phc.env.tasks.pm.strike import HumanoidStrike, HumanoidStrikeZ
-
-
+from phc.env.tasks.pm.long_jump import HumanoidLongJump, HumanoidLongJumpZ
 
 from isaacgym import rlgpu
 
@@ -57,11 +56,11 @@ import numpy as np
 
 
 def warn_task_name():
-    raise Exception("Unrecognized task!\nTask should be one of: [BallBalance, Cartpole, CartpoleYUp, Ant, Humanoid, Anymal, FrankaCabinet, Quadcopter, ShadowHand, ShadowHandLSTM, ShadowHandFFOpenAI, ShadowHandFFOpenAITest, ShadowHandOpenAI, ShadowHandOpenAITest, Ingenuity]")
+    raise Exception(
+        "Unrecognized task!\nTask should be one of: [BallBalance, Cartpole, CartpoleYUp, Ant, Humanoid, Anymal, FrankaCabinet, Quadcopter, ShadowHand, ShadowHandLSTM, ShadowHandFFOpenAI, ShadowHandFFOpenAITest, ShadowHandOpenAI, ShadowHandOpenAITest, Ingenuity]")
 
 
 def parse_task(args, cfg, cfg_train, sim_params):
-
     # create native task and pass custom config
     device_id = args.device_id
     rl_device = args.rl_device
@@ -70,7 +69,8 @@ def parse_task(args, cfg, cfg_train, sim_params):
     cfg_task = cfg["env"]
     cfg_task["seed"] = cfg["seed"]
 
-    task = eval(args.task)(cfg=cfg, sim_params=sim_params, physics_engine=args.physics_engine, device_type=args.device, device_id=device_id, headless=args.headless)
+    task = eval(args.task)(cfg=cfg, sim_params=sim_params, physics_engine=args.physics_engine, device_type=args.device,
+                           device_id=device_id, headless=args.headless)
     env = VecTaskPythonWrapper(task, rl_device, cfg_train['params'].get("clip_observations", np.inf))
 
     return task, env
