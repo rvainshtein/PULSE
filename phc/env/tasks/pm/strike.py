@@ -59,6 +59,15 @@ class HumanoidStrike(PMBase):
         self._build_target_tensors()
         self._current_successes = torch.zeros([self.num_envs], device=self.device, dtype=torch.bool)
 
+    def _build_marker_state_tensors(self):
+        num_actors = self._root_states.shape[0] // self.num_envs
+        self._marker_states = self._root_states.view(self.num_envs, num_actors, self._root_states.shape[-1])[..., 1, :]
+        self._marker_pos = self._marker_states[..., :3]
+
+        self._marker_actor_ids = self._humanoid_actor_ids + 1
+
+        return
+
     def get_task_obs_size(self):
         obs_size = 0
         if (self._enable_task_obs):
