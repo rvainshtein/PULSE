@@ -17,6 +17,12 @@ learning:
       max_epochs: 30000
       save_frequency: 10000
 env:
+  camera:
+    pos: [ 1.75, -1.75, 1 ]
+    pitch_deg: 20
+    roll_deg: 0
+    yaw_deg: 135
+  export_video: True
   models: [ 'output/HumanoidIm/pulse_vae_iclr/Humanoid.pth' ]  # example from readme
   motion_file: sample_data/amass_isaac_simple_run_upright_slim.pkl
 

@@ -60,6 +60,7 @@ from tqdm import tqdm
 class BaseTask():
 
     def __init__(self, cfg, enable_camera_sensors=False):
+        self.camera_config = cfg.get("camera_config", None)
         self.headless = cfg["headless"]
         if self.headless == False and not flags.no_virtual_display:
             from pyvirtualdisplay.smartdisplay import SmartDisplay
@@ -177,8 +178,19 @@ class BaseTask():
         self.recorder_camera_handles = []
         self.max_num_camera = 10
         self.viewing_env_idx = 0
-        for idx, env in enumerate(self.envs):
-            self.recorder_camera_handles.append(self.gym.create_camera_sensor(env, gymapi.CameraProperties()))
+        camera_offset = gymapi.Vec3(*self.camera_config.pos)
+        pitch = np.deg2rad(self.camera_config.pitch_deg)
+        roll = np.deg2rad(self.camera_config.roll_deg)
+        yaw = np.deg2rad(self.camera_config.yaw_deg)
+        camera_rotation = gymapi.Quat.from_euler_zyx(roll, pitch, yaw)
+        transform = gymapi.Transform(camera_offset, camera_rotation)
+        for idx, env, humanoid_handle in enumerate(zip(self.envs, self.humanoid_handles)):
+            cam_handle = self.gym.create_camera_sensor(env, gymapi.CameraProperties())
+            self.gym.attach_camera_to_body(
+                cam_handle, env, humanoid_handle, transform, gymapi.FOLLOW_POSITION
+            )
+            self.recorder_camera_handles.append(cam_handle)
+
             if idx > self.max_num_camera:
                 break
 
