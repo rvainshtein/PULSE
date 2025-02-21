@@ -729,7 +729,7 @@ class HumanoidAMP(humanoid_z.HumanoidZ):
 
         new_cam_target = gymapi.Vec3(char_root_pos[0], char_root_pos[1], char_root_pos[2])
         # if np.abs(cam_pos[2] - char_root_pos[2]) > 5:
-        cam_pos[2] = char_root_pos[2] + 0.5
+        cam_pos[2] = char_root_pos[2] + 1.5
         new_cam_pos = gymapi.Vec3(char_root_pos[0] + cam_delta[0], char_root_pos[1] + cam_delta[1], cam_pos[2])
 
         self.gym.set_camera_location(self.recorder_camera_handle, self.envs[self.viewing_env_idx], new_cam_pos, new_cam_target)

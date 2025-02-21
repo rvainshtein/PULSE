@@ -10,7 +10,7 @@ numpy==1.23.5
 scipy
 ipdb
 joblib>=1.2.0
-opencv-python==4.6.0.66
+opencv-pythonf==4.6.0.66
 tqdm 
 pyyaml
 wandb

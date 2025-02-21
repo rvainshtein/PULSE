@@ -60,7 +60,7 @@ from tqdm import tqdm
 class BaseTask():
 
     def __init__(self, cfg, enable_camera_sensors=False):
-        self.camera_config = cfg.get("camera_config", None)
+        self.camera_config = cfg["env"]["camera"]
         self.headless = cfg["headless"]
         if self.headless == False and not flags.no_virtual_display:
             from pyvirtualdisplay.smartdisplay import SmartDisplay
@@ -172,7 +172,7 @@ class BaseTask():
                 cam_pos = gymapi.Vec3(20.0, 3.0, 25.0)
                 cam_target = gymapi.Vec3(10.0, 0.0, 15.0)
 
-            self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
+            # self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
 
         ###### Custom Camera Sensors ######
         self.recorder_camera_handles = []
@@ -184,7 +184,7 @@ class BaseTask():
         yaw = np.deg2rad(self.camera_config.yaw_deg)
         camera_rotation = gymapi.Quat.from_euler_zyx(roll, pitch, yaw)
         transform = gymapi.Transform(camera_offset, camera_rotation)
-        for idx, env, humanoid_handle in enumerate(zip(self.envs, self.humanoid_handles)):
+        for idx, (env, humanoid_handle) in enumerate(zip(self.envs, self.humanoid_handles)):
             cam_handle = self.gym.create_camera_sensor(env, gymapi.CameraProperties())
             self.gym.attach_camera_to_body(
                 cam_handle, env, humanoid_handle, transform, gymapi.FOLLOW_POSITION
