@@ -465,27 +465,153 @@ class HumanoidAMP(humanoid_z.HumanoidZ):
 
         return motion_ids, motion_times, root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel,  rb_pos, rb_rot, body_vel, body_ang_vel
 
-    def _reset_ref_state_init(self, env_ids):
+    def _reset_ref_state_init(
+            self,
+            env_ids,
+            motion_ids: Optional[Tensor] = None,
+            motion_times: Optional[Tensor] = None,
+            scene_ids: Optional[Tensor] = None,
+            append_to_lists=False,
+    ):
         num_envs = env_ids.shape[0]
-        motion_ids, motion_times, root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, rb_pos, rb_rot, body_vel, body_ang_vel = self._sample_ref_state(env_ids)
-        
-        # if flags.debug:
-        # print('raising for debug')
-        # root_pos[..., 2] += 0.5
 
-        # if flags.fixed:
-        #     x_grid, y_grid = torch.meshgrid(torch.arange(64), torch.arange(64))
-        #     root_pos[:, 0], root_pos[:, 1] = x_grid.flatten()[env_ids] * 2, y_grid.flatten()[env_ids] * 2
-        self._set_env_state(env_ids=env_ids, root_pos=root_pos, root_rot=root_rot, dof_pos=dof_pos, root_vel=root_vel, root_ang_vel=root_ang_vel, dof_vel=dof_vel, rigid_body_pos=rb_pos, rigid_body_rot=rb_rot, rigid_body_vel=body_vel, rigid_body_ang_vel=body_ang_vel)
+        if self.scene_lib is None:
+            if motion_ids is None:
+                motion_ids = self._motion_lib.sample_motions(num_envs)
+        elif motion_ids is None or scene_ids is None:
+            if scene_ids is None and motion_ids is not None:
+                scene_ids = self.scene_lib.sample_scenes(motion_ids)
+            elif scene_ids is None and motion_ids is None:
+                self.scene_lib.mark_scene_not_in_use(self.scene_ids[env_ids])
+                available_scenes = self.scene_lib.get_available_scenes_mask()
+                motion_ids, scene_ids = self._motion_lib.sample_motions_scene_aware(
+                    num_envs,
+                    available_scenes,
+                    self.scene_lib.single_robot_in_scene,
+                    with_replacement=True,
+                )
+                for env_id in env_ids:
+                    object_mask = self.object_id_to_scene_id == scene_ids[env_id]
+                    self.env_id_to_object_ids[env_id, :] = -1
+                    if object_mask.any():
+                        object_ids = torch.where(object_mask)[0]
+                        self.env_id_to_object_ids[env_id, : len(object_ids)] = (
+                            object_ids
+                        )
+            else:
+                raise ValueError(
+                    "reset_ref_state_init: scene_ids and motion_ids must be provided together."
+                )
 
-        self._reset_ref_env_ids = env_ids
-        self._reset_ref_motion_ids = motion_ids
-        self._reset_ref_motion_times = motion_times
-        self._motion_start_times[env_ids] = motion_times
-        self._sampled_motion_ids[env_ids] = motion_ids
-        if flags.follow:
-            self.start = True  ## Updating camera when reset
-        return
+        if motion_times is None:
+            if (
+                    self.state_init == self.StateInit.Random
+                    or self.state_init == self.StateInit.Hybrid
+            ):
+                max_steps = self.get_required_history_length()
+
+                motion_times = self.sample_time_without_negatives(
+                    motion_ids, earliest_time=self.dt * max_steps
+                )
+            elif self.state_init == self.StateInit.Start:
+                motion_times = torch.zeros(num_envs, device=self.device)
+            else:
+                assert False, "Unsupported state initialization strategy: {:s}".format(
+                    str(self.state_init)
+                )
+
+        ref_state = self.motion_lib.get_motion_state(motion_ids, motion_times)
+
+        root_offset = ref_state.root_pos[:, :2].clone()
+
+        ref_state.root_pos[:, :2] = 0
+        ref_state.root_pos[:, :3] += self.get_envs_respawn_position(
+            env_ids, rb_pos=ref_state.rb_pos, offset=root_offset, scene_ids=scene_ids
+        )
+
+        ref_state.rb_pos[:, :, :3] -= ref_state.rb_pos[:, 0, :3].unsqueeze(1).clone()
+        ref_state.rb_pos[:, :, :3] += ref_state.root_pos.unsqueeze(1)
+
+        self.set_env_state(
+            env_ids=env_ids,
+            root_pos=ref_state.root_pos,
+            root_rot=ref_state.root_rot,
+            dof_pos=ref_state.dof_pos,
+            root_vel=ref_state.root_vel,
+            root_ang_vel=ref_state.root_ang_vel,
+            dof_vel=ref_state.dof_vel,
+            rb_pos=ref_state.rb_pos,
+            rb_rot=ref_state.rb_rot,
+            rb_vel=ref_state.rb_vel,
+            rb_ang_vel=ref_state.rb_ang_vel,
+        )
+
+        if append_to_lists and len(self.reset_ref_env_ids) > 0:
+            self.reset_ref_env_ids = torch.cat([env_ids, self.reset_ref_env_ids], dim=0)
+            self.reset_ref_motion_ids = torch.cat(
+                [motion_ids, self.reset_ref_motion_ids], dim=0
+            )
+            self.reset_ref_motion_times = torch.cat(
+                [motion_times, self.reset_ref_motion_times], dim=0
+            )
+        else:
+            self.reset_ref_env_ids = env_ids
+            self.reset_ref_motion_ids = motion_ids
+            self.reset_ref_motion_times = motion_times
+
+        # Reset objects associated with the scene
+        if scene_ids is not None and self.scene_lib is not None:
+            has_scene = self.scene_ids[env_ids] > -1
+            active_scenes = self.scene_ids[env_ids][has_scene]
+            active_object_mask = torch.isin(self.object_id_to_scene_id, active_scenes)
+            active_object_ids = torch.arange(
+                len(self.object_id_to_scene_id), device=self.device
+            )[active_object_mask]
+
+            # Filter out static objects
+            non_static_mask = ~torch.tensor(
+                [obj["is_static"] for obj in self.scene_lib.object_spawn_list],
+                device=self.device,
+            )[active_object_ids]
+            non_static_object_ids = active_object_ids[non_static_mask]
+
+            if len(non_static_object_ids) > 0:
+                # Create a mapping from scene_id to motion_time
+                scene_to_time = {
+                    scene_id.item(): time.item()
+                    for scene_id, time in zip(
+                        active_scenes, self.motion_times[env_ids][has_scene]
+                    )
+                }
+
+                # Get the corresponding times for the non-static objects
+                non_static_scene_times = torch.tensor(
+                    [
+                        scene_to_time[self.object_id_to_scene_id[obj_id].item()]
+                        for obj_id in non_static_object_ids
+                    ],
+                    device=self.device,
+                )
+
+                non_static_object_states = self.scene_lib.get_object_pose(
+                    non_static_object_ids, non_static_scene_times
+                )
+
+                # Update object states in the simulation
+                non_static_object_states.translations[
+                :, 2
+                ] += self.config.object_ref_respawn_offset
+                self.set_object_state(
+                    object_ids=non_static_object_ids,
+                    positions=non_static_object_states.translations,
+                    rotations=non_static_object_states.rotations,
+                )
+                if append_to_lists and len(self.reset_ref_object_ids) > 0:
+                    self.reset_ref_object_ids = torch.cat(
+                        [non_static_object_ids, self.reset_ref_object_ids], dim=0
+                    )
+                else:
+                    self.reset_ref_object_ids = non_static_object_ids
 
     def _reset_hybrid_state_init(self, env_ids):
         num_envs = env_ids.shape[0]

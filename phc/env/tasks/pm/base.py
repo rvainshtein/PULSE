@@ -24,6 +24,8 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
             self.config.simulator.plane.static_friction = perturbations["friction"]
             self.config.simulator.plane.dynamic_friction = perturbations["friction"]
 
+        self.num_envs = cfg.env.num_envs
+        self.create_terrain()
         super().__init__(cfg, sim_params, physics_engine, device_type, device_id, headless)
 
         humanoid_asset = self.humanoid_assets[0]
@@ -31,7 +33,9 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
         self.dof_names = self.gym.get_asset_dof_names(humanoid_asset)
         self.num_dof = self.gym.get_asset_dof_count(humanoid_asset)
         self.num_joints = self.gym.get_asset_joint_count(humanoid_asset)
-
+        self.non_termination_contact_body_ids = self.build_body_ids_tensor(
+            self.config.robot.non_termination_contact_bodies
+        )
         self.dt = self.control_freq_inv * self.sim_params.dt
 
         if "smpl" in self.config.asset.assetFileName:
@@ -41,7 +45,7 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
 
         self.w_last = True
 
-        self.create_terrain()
+
         self.build_termination_heights()
         self._failures = []
         self._distances = []
@@ -140,9 +144,6 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
                 * self.terrain.vertical_scale
         )
 
-        self.non_termination_contact_body_ids = self.build_body_ids_tensor(
-            self.config.robot.non_termination_contact_bodies
-        )
 
     def build_body_ids_tensor(self, body_names):
         body_ids = []

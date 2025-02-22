@@ -32,7 +32,7 @@ import os
 
 import torch
 import multiprocessing
-
+from hydra.utils import instantiate
 from isaacgym import gymtorch
 from isaacgym import gymapi
 from isaacgym.torch_utils import *
@@ -52,7 +52,7 @@ from scipy.spatial.transform import Rotation as sRot
 import gc
 import torch.multiprocessing as mp
 from phc.utils.draw_utils import agt_color, get_color_gradient
-
+from phys_anim.utils.scene_lib import Terrain
 
 ENABLE_MAX_COORD_OBS = True
 # PERTURB_OBJS = [
@@ -609,6 +609,14 @@ class Humanoid(BaseTask):
         return
 
     def _create_ground_plane(self):
+        print("Creating ground plane")
+        # import pdb;pdb.set_trace()
+        if self.cfg.env.terrain is None:
+            self.add_default_ground()
+        else:
+            self.add_terrain()
+        print("Ground plane created")
+    def add_default_ground(self):
         plane_params = gymapi.PlaneParams()
         plane_params.normal = gymapi.Vec3(0.0, 0.0, 1.0)
         plane_params.static_friction = self.plane_static_friction
@@ -621,6 +629,22 @@ class Humanoid(BaseTask):
         self.gym.add_ground(self.sim, plane_params)
         return
 
+    def add_terrain(self):
+        tm_params = gymapi.TriangleMeshParams()
+        tm_params.nb_vertices = self.terrain.vertices.shape[0]
+        tm_params.nb_triangles = self.terrain.triangles.shape[0]
+        tm_params.transform.p.x = 0
+        tm_params.transform.p.y = 0
+        tm_params.transform.p.z = 0.0
+        tm_params.static_friction = self.plane_static_friction
+        tm_params.dynamic_friction = self.plane_dynamic_friction
+        tm_params.restitution = self.plane_restitution
+        self.gym.add_triangle_mesh(
+            self.sim,
+            self.terrain.vertices.flatten(order="C"),
+            self.terrain.triangles.flatten(order="C"),
+            tm_params,
+        )
     def _setup_character_props(self, key_bodies):
         
         asset_file = self.cfg.robot.asset.assetFileName
