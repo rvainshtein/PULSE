@@ -4,7 +4,6 @@ defaults:
   - /learning/pulse_z_task
   - /env/env_pulse_amp
   - /opt/low_compute
-  - /terrain/flat
 
 
 exp_name: pm
@@ -55,5 +54,23 @@ env:
     asset:
       robot_type: smpl_humanoid
       filter_ints: [ 0, 0, 7, 16, 12, 0, 56, 2, 33, 128, 0, 192, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ]
+#  terrain: None
+
+  terrain:
+    terrainType: trimesh # none, plane, or trimesh
+    staticFriction: 1.0  # [-]
+    dynamicFriction: 1.0  # [-]
+    restitution: 0.        # [-]
+    # rough terrain only:
+    curriculum: true
+    maxInitMapLevel: 0
+    mapLength: 20.
+    mapWidth: 20.
+    numLevels: 10
+    numTerrains: 1
+    # terrain types: [smooth slope, rough slope, stairs up, stairs down, discrete, stepping, poles, flat]
+    terrainProportions: [ 0, 0, 0, 0, 0, 0, 0, 1 ]
+    # tri mesh only:
+    slopeTreshold: 0.9
 
 follow: True
