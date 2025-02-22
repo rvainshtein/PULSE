@@ -456,27 +456,27 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
             self.create_training_ground()
         print("Ground plane created")
 
-    def _compute_reset(self):
-        time = self.progress_buf * self.dt
-        env_ids = torch.arange(self.num_envs,
-                               device=self.device,
-                               dtype=torch.long)
-        tar_pos = self._traj_gen.calc_pos(env_ids, time)
-        ### ZL: entry point
-        # self._traj_gen.update_sim_pos(self._humanoid_root_states[)
-
-        root_states = self._humanoid_root_states
-        center_height = self.get_center_heights(
-            root_states, env_ids=None).mean(dim=-1, keepdim=True)
-
-        # import ipdb
-        # ipdb.set_trace()
-        self.reset_buf[:], self._terminate_buf[:] = compute_humanoid_reset(
-            self.reset_buf, self.progress_buf, self._contact_forces,
-            self._contact_body_ids, center_height, self._rigid_body_pos,
-            tar_pos, self.max_episode_length, self._fail_dist,
-            self._enable_early_termination, self._termination_heights, flags.no_collision_check)
-        return
+    # def _compute_reset(self):
+    #     time = self.progress_buf * self.dt
+    #     env_ids = torch.arange(self.num_envs,
+    #                            device=self.device,
+    #                            dtype=torch.long)
+    #     tar_pos = self._traj_gen.calc_pos(env_ids, time)
+    #     ### ZL: entry point
+    #     # self._traj_gen.update_sim_pos(self._humanoid_root_states[)
+    #
+    #     root_states = self._humanoid_root_states
+    #     center_height = self.get_center_heights(
+    #         root_states, env_ids=None).mean(dim=-1, keepdim=True)
+    #
+    #     # import ipdb
+    #     # ipdb.set_trace()
+    #     self.reset_buf[:], self._terminate_buf[:] = compute_humanoid_reset(
+    #         self.reset_buf, self.progress_buf, self._contact_forces,
+    #         self._contact_body_ids, center_height, self._rigid_body_pos,
+    #         tar_pos, self.max_episode_length, self._fail_dist,
+    #         self._enable_early_termination, self._termination_heights, flags.no_collision_check)
+    #     return
     def add_default_ground(self):
         plane_params = gymapi.PlaneParams()
         plane_params.normal = gymapi.Vec3(0.0, 0.0, 1.0)

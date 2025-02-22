@@ -450,8 +450,17 @@ class BaseTask():
                         self.curr_states_file_name = self._states_path % curr_date_time
                         if not flags.server_mode:
                             self.writer = imageio.get_writer(self.curr_video_file_name, fps=60, macro_block_size=None)
-                    self.writer.append_data(self.color_image)
-                    
+
+                    # center crop the image with 420, 360 size crop
+
+                    width = (420*self.color_image.shape[0])//360
+                    color_image = cv2.resize(self.color_image, (width, 360), interpolation=cv2.INTER_AREA)
+                    center_x = color_image.shape[1] // 2
+                    crop_size_x = 420
+                    color_image = color_image[:, center_x - crop_size_x // 2:center_x + crop_size_x // 2]
+                    # print(color_image.shape)
+                    self.writer.append_data(color_image)
+
                     
                 self._record_states()
 

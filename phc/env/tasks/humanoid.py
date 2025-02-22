@@ -545,8 +545,9 @@ class Humanoid(BaseTask):
         offset = np.random.randint(0, 10)
         for env_id in range(self.num_envs): 
             rand_cols = agt_color(env_id + offset)
-            colors.append(rand_cols)
-            
+            # colors.append(rand_cols)
+            # only append purple color
+            colors.append([200/255, 120/255, 200/255])
         self.sample_char_color(torch.tensor(colors), torch.arange(self.num_envs))
         
 
