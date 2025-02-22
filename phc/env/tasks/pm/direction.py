@@ -381,7 +381,7 @@ class HumanoidDirection(PMBase):
         self.power_acc[env_ids] = 0
 
     def _sample_ref_state(self, env_ids):
-        motion_ids, motion_times, root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, rb_pos, rb_rot, body_vel, body_ang_vel = super()._sample_ref_state(
+        motion_ids, motion_times, root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, key_pos, rb_pos, rb_rot, body_vel, body_ang_vel = super()._sample_ref_state(
             env_ids)
 
         # ZL Hack: Forcing to always be facing the x-direction.
@@ -398,7 +398,7 @@ class HumanoidDirection(PMBase):
         root_vel = itu.quat_apply(heading_rot_inv, root_vel).clone()
         body_vel = itu.quat_apply(heading_rot_inv_repeat, body_vel).clone()
 
-        return motion_ids, motion_times, root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, rb_pos, rb_rot, body_vel, body_ang_vel
+        return motion_ids, motion_times, root_pos, root_rot, dof_pos, root_vel, root_ang_vel, dof_vel, key_pos, rb_pos, rb_rot, body_vel, body_ang_vel
 
     def _hack_output_motion_target(self):
         if (not hasattr(self, '_output_motion_target_speed')):
