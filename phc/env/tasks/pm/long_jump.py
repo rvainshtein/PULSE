@@ -24,7 +24,7 @@ class HumanoidLongJump(PMBase):
         self.first_in = True
         self._init_dist_from_start = self.config.long_jump_params.get("init_dist_from_start", 10)
 
-        xy_start_pos = self.terrain.sample_valid_locations(self.num_envs)  # [num_envs, 2]
+        xy_start_pos = self.terrain.sample_valid_locations(self.num_envs, torch.arange(self.num_envs, device=self.device))
         ones = torch.ones_like(xy_start_pos[:, 0:1], device=self.device)
         self.longjump_start_position = torch.cat([xy_start_pos, ones], dim=-1)  # [num_envs, 3]
         self.goal = self.longjump_start_position.clone()
