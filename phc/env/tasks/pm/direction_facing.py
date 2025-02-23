@@ -255,7 +255,7 @@ class HumanoidDirectionFacing(HumanoidDirection):
         tar_dir_vel = tar_dir_speed.unsqueeze(-1) * self._tar_dir[:]
         tangent_vel = root_vel[..., :2] - tar_dir_vel
 
-        tangent_vel_error = torch.sum(tangent_vel, dim=-1)
+        tangent_vel_error = torch.norm(tangent_vel, dim=-1)
 
         tar_vel_err = self._tar_speed[:] - tar_dir_speed
         tar_vel_err_rel = torch.where(self._tar_speed[:] > 1e-4, tar_vel_err / self._tar_speed[:], tar_vel_err)
