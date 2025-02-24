@@ -21,8 +21,8 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
         perturbations = self.config.get("perturbations", {})
         self.gravity_z = perturbations.get("gravity_z", -9.81)
         if "friction" in perturbations:
-            self.config.simulator.plane.static_friction = perturbations["friction"]
-            self.config.simulator.plane.dynamic_friction = perturbations["friction"]
+            self.plane_static_friction = perturbations["friction"]
+            self.plane_dynamic_friction = perturbations["friction"]
 
         super().__init__(cfg, sim_params, physics_engine, device_type, device_id, headless)
 
