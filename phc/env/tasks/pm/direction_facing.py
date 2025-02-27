@@ -24,6 +24,7 @@ from phc.utils.torch_utils_pm import calc_heading_quat
 TAR_ACTOR_ID = 1
 TAR_FACING_ACTOR_ID = 2
 
+
 class HumanoidDirectionFacing(HumanoidDirection):
     def __init__(self, cfg, sim_params, physics_engine, device_type, device_id, headless):
         self.config = cfg.env
@@ -99,6 +100,7 @@ class HumanoidDirectionFacing(HumanoidDirection):
         self._face_marker_handles.append(face_marker_handle)
 
         return
+
     def _build_marker_state_tensors(self):
         num_actors = self._root_states.shape[0] // self.num_envs
 
@@ -134,7 +136,7 @@ class HumanoidDirectionFacing(HumanoidDirection):
         self._marker_rot[:] = heading_q
 
         self._face_marker_pos[..., 0:2] = (
-            humanoid_root_pos[..., 0:2] + self._tar_facing_dir
+                humanoid_root_pos[..., 0:2] + self._tar_facing_dir
         )
         self._face_marker_pos[..., 2] = humanoid_root_pos[..., 2]
 
@@ -175,9 +177,10 @@ class HumanoidDirectionFacing(HumanoidDirection):
         super().reset_heading_task(env_ids)
         if len(env_ids) > 0:
             # Make sure the test has started + agent started from a valid position (if it failed, then it's not valid)
-            active_envs = (self._current_accumulated_errors[env_ids] > 0) & (
-                    (self._last_length[env_ids] - self._heading_turn_steps[env_ids]) > 0
-            )
+            measurement_started = (self._current_accumulated_errors[env_ids] > 0) & (
+                    (self._last_length[env_ids] - self._heading_turn_steps[env_ids]) > 0)
+            terminated = self._terminate_buf_copy[env_ids].to(bool) & (self._last_length[env_ids] > 0)
+            active_envs = measurement_started | terminated
             average_distances = self._current_accumulated_errors[env_ids][
                                     active_envs
                                 ] / (
@@ -186,9 +189,11 @@ class HumanoidDirectionFacing(HumanoidDirection):
                                 )
             self._distances.extend(average_distances.cpu().tolist())
             self._current_accumulated_errors[env_ids] = 0
-            self._failures.extend(
-                (self._current_failures[env_ids][active_envs] > 0).cpu().tolist()
-            )
+            self._current_failures[self._terminate_buf_copy[env_ids].to(bool)] += 1
+            self._failures.extend((self._current_failures[env_ids][active_envs] > 0).cpu().tolist())
+            # for the last episode, we need to accumulate the errors
+            self.accumulate_errors()
+
             self._current_failures[env_ids] = 0
         else:
             env_ids = torch.arange(self.num_envs)

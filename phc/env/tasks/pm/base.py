@@ -57,6 +57,13 @@ class PMBase(humanoid_amp_task.HumanoidAMPTask):
 
         self.results = {}
 
+        self._terminate_buf_copy = torch.zeros_like(self._terminate_buf)
+
+    def _reset_envs(self, env_ids):
+        self._terminate_buf_copy[:] = self._terminate_buf.clone()
+        super()._reset_envs(env_ids)
+        if len(env_ids) > 0:
+            self._terminate_buf_copy[env_ids] = 0
     def set_sim_params_up_axis(self, sim_params, axis):
         if axis == 'z':
             sim_params.up_axis = gymapi.UP_AXIS_Z

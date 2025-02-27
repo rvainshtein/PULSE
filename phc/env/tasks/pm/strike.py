@@ -397,7 +397,7 @@ def compute_humanoid_reset(tar_pos, tar_rot, reset_buf, progress_buf, contact_bu
         # Define success condition: target falls
         up = torch.zeros_like(tar_pos)
         up[..., -1] = 1
-        tar_up = quat_rotate(tar_rot, up)
+        tar_up = quat_rotate(tar_rot, up, w_last=True)
         tar_rot_err = torch.sum(up * tar_up, dim=-1)
         success = tar_rot_err < 0.2
         success *= (progress_buf > 1)
