@@ -189,7 +189,7 @@ class HumanoidDirectionFacing(HumanoidDirection):
                                 )
             self._distances.extend(average_distances.cpu().tolist())
             self._current_accumulated_errors[env_ids] = 0
-            self._current_failures[self._terminate_buf_copy[env_ids].to(bool)] += 1
+            self._current_failures[env_ids][terminated] += 1
             self._failures.extend((self._current_failures[env_ids][active_envs] > 0).cpu().tolist())
             # for the last episode, we need to accumulate the errors
             self.accumulate_errors()
