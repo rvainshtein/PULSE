@@ -94,8 +94,11 @@ class Humanoid(BaseTask):
         self.power_scale = self.cfg["env"]["power_scale"]
 
         self.debug_viz = self.cfg["env"]["enable_debug_vis"]
-        self.plane_static_friction = self.cfg["env"]["plane"]["staticFriction"]
-        self.plane_dynamic_friction = self.cfg["env"]["plane"]["dynamicFriction"]
+        # check if self.plane_static_friction already exists
+        if not hasattr(self, 'plane_static_friction'):
+            self.plane_static_friction = self.cfg["env"]["plane"]["staticFriction"]
+        if not hasattr(self, 'plane_dynamic_friction'):
+            self.plane_dynamic_friction = self.cfg["env"]["plane"]["dynamicFriction"]
         self.plane_restitution = self.cfg["env"]["plane"]["restitution"]
 
         self.max_episode_length = self.cfg["env"]["episode_length"]
